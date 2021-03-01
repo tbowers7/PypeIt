@@ -33,6 +33,10 @@ import time
 
 from IPython import embed
 
+import warnings
+from astropy.io.fits.verify import VerifyWarning
+warnings.simplefilter('ignore', VerifyWarning)
+
 # TODO -- Move this module to core/
 
 def init_record_array(shape, dtype):
