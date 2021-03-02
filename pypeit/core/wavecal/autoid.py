@@ -1121,7 +1121,7 @@ class ArchiveReid:
             msgs.error('Input parameters must be provided by a WavelengthSolutionPar object.')
         # TODO: Do we need ech_fix_format if we have
         # spectrograph.pypeline, assuming we keep passing spectrograph?
-        if par['ech_fix_format'] and orders is None:
+        if par['echelle'] and par['ech_fix_format'] and orders is None:
             msgs.error('If the specrograph is a fixed-format echelle (ech_fix_format is True), '
                        'the orders must be provided.')
 
@@ -1171,6 +1171,7 @@ class ArchiveReid:
         self.cc_thresh = self.par['cc_thresh']
         self.cc_local_thresh = self.par['cc_local_thresh']
         self.ech_fix_format = self.par['ech_fix_format']
+        self.echelle = self.par['echelle']
 
         # Paramters that govern wavelength solution fitting
         self.rms_threshold = self.par['rms_threshold']
@@ -1222,7 +1223,7 @@ class ArchiveReid:
             self.spec_arxiv[:, iarxiv] = self.wv_calib_arxiv[str(iarxiv)]['spec']
             self.wave_soln_arxiv[:, iarxiv] = self.wv_calib_arxiv[str(iarxiv)]['wave_soln']
         # arxiv orders (echelle only)
-        if self.ech_fix_format:
+        if self.echelle and self.ech_fix_format:
             arxiv_orders = []
             for iarxiv in range(narxiv):
                 arxiv_orders.append(self.wv_calib_arxiv[str(iarxiv)]['order'])
