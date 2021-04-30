@@ -215,6 +215,9 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         par['calibrations']['wavelengths']['n_final'] = 5
         par['calibrations']['wavelengths']['rms_threshold'] = 0.2
         par['calibrations']['wavelengths']['nlocal_cc'] = 13
+        # Needed to address ISSUE #1155 when non-echelle spectrographs use
+        #  the wavelength calibration method `reidentify`.
+        par['calibrations']['wavelengths']['ech_fix_format'] = False
         
         
         # # Do not flux calibrate
