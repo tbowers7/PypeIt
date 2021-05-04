@@ -521,6 +521,7 @@ def spec_flexure_qa(slitords, bpm, basename, det, flex_list, specobjs=None, out_
         out_dir:
 
     """
+    msgs.info("We do this, ja?")
     plt.rcdefaults()
     plt.rcParams['font.family'] = 'times new roman'
 

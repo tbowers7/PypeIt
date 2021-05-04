@@ -731,6 +731,7 @@ class Reduce(object):
                 self.waveimg = self.wv_calib.build_waveimg(self.tilts, self.slits,
                                                            spat_flexure=self.spat_flexure_shift,
                                                            spec_flexure=self.slitshift)
+                msgs.info("Did we build the wageimg?")
             elif mode == "local":
                 # Measure flexure:
                 # If mode == local: specobjs != None and slitspecs = None
