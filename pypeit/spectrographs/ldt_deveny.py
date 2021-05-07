@@ -60,9 +60,9 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
             specflip        = True,
             spatflip        = False,
             platescale      = 0.34,
-            darkcurr        = 0.0,    # Still need to measure this.
+            darkcurr        = 0.0,      # Still need to measure this.
             saturation      = 65535.,
-            nonlinear       = 1.0,
+            nonlinear       = 1.0,      # Still need to measure this.
             mincounts       = -1e10,
             numamplifiers   = 1,
             gain            = np.atleast_1d(header['GAIN']),
@@ -270,8 +270,8 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         # Call the base-class method to generate the empty bpm
         bpm_img = super().bpm(filename, det, shape=shape, msbias=msbias)
 
-        msgs.info("Using hard-coded BPM for DeVeny")
-        bpm_img[:, 0] = 1
+        # msgs.info("Using hard-coded BPM for DeVeny")
+        # bpm_img[:, 0] = 1
 
         return bpm_img
 
