@@ -67,10 +67,9 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
             numamplifiers   = 1,
             gain            = np.atleast_1d(header['GAIN']),
             ronoise         = np.atleast_1d(header['RDNOISE']),
-            # Data & Overscan Sections deliberately cut in spatial direction
-            #   to exclue the edges of the slit and weird light spillover.
-            datasec         = np.atleast_1d('[25:495,54:2096]'),
-            oscansec        = np.atleast_1d('[25:495,2101:2144]')
+            # Data & Overscan Sections -- Edge tracing can handle slit edges
+            datasec         = np.atleast_1d('[5:512,54:2096]'),
+            oscansec        = np.atleast_1d('[5:512,2101:2144]')
             )
         return detector_container.DetectorContainer(**detector_dict)
 
@@ -189,69 +188,55 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         par = super().default_pypeit_par()
 
         # Calibration Parameters
-        # Turn off illumflat and darkimage; turn on overscan
-        set_use = dict(use_illumflat=False, use_darkimage=False, use_overscan=True)
+        # Turn off illumflat -- other defaults OK (as of v1.4.1)
+        set_use = dict(use_illumflat=False)
         par.reset_all_processimages_par(**set_use)
 
-        # Need to specify this for long-slit data
-        par['calibrations']['slitedges']['sync_predict'] = 'nearest'
-        par['calibrations']['slitedges']['bound_detector'] = True
-    
+        # Use median combine (rather than weighted mean) for all cals
+        par['calibrations']['biasframe']['process']['combine'] = 'median'
+        par['calibrations']['arcframe']['process']['combine'] = 'median'
+        par['calibrations']['tiltframe']['process']['combine'] = 'median'
+        par['calibrations']['pixelflatframe']['process']['combine'] = 'median'
+        par['calibrations']['illumflatframe']['process']['combine'] = 'median'
+
+        # For science, standard, and sky frames, combine using weighted mean (Default)
+        #par['calibrations']['standardframe']['process']['combine'] = 'weightmean'
+        #par['calibrations']['skyframe']['process']['combine'] = 'weightmean'
+        #par['scienceframe']['process']['combine'] = 'weightmean'
+
         # Make a bad pixel mask
         par['calibrations']['bpm_usebias'] = True
-        # Set pixel flat combination method
-        par['calibrations']['pixelflatframe']['process']['combine'] = 'median'
 
-        # Wavelengths
-        # Change the wavelength calibration method
-        par['calibrations']['wavelengths']['method'] = 'holy-grail'
-        # Include the lamps available on DeVeny
+        # Wavelength Calibration Parameters
+        # Include all the lamps available on DeVeny
         par['calibrations']['wavelengths']['lamps'] = ['NeI', 'ArI', 'ArII', 'CdI', 'HgI']
-        # 1D wavelength solution
-        par['calibrations']['wavelengths']['rms_threshold'] = 0.5
-        par['calibrations']['wavelengths']['sigdetect'] = 5.
-        par['calibrations']['wavelengths']['fwhm']= 3.0
-        par['calibrations']['wavelengths']['n_first'] = 3
-        par['calibrations']['wavelengths']['n_final'] = 5
-        par['calibrations']['wavelengths']['rms_threshold'] = 0.2
-        par['calibrations']['wavelengths']['nlocal_cc'] = 13
+        #par['calibrations']['wavelengths']['method'] = 'reidentify'
+        # These are changes from defaults from another spectrograph...
+        # TODO: Not sure if we will need to adjust these at some point
+        #par['calibrations']['wavelengths']['n_first'] = 3  # Default: 2
+        #par['calibrations']['wavelengths']['n_final'] = 5  # Default: 4
+        #par['calibrations']['wavelengths']['nlocal_cc'] = 13  # Default: 11
+        par['calibrations']['wavelengths']['fwhm']= 3.0  # Default: 4.0
+        par['calibrations']['wavelengths']['rms_threshold'] = 0.5  # Default: 0.15
+        par['calibrations']['wavelengths']['sigdetect'] = 10.  # Default: 5.0
         # Needed to address ISSUE #1155 when non-echelle spectrographs use
         #  the wavelength calibration method `reidentify`.
         par['calibrations']['wavelengths']['ech_fix_format'] = False
+
+        # Slit-edge setting for long-slit data
+        par['calibrations']['slitedges']['bound_detector'] = True
+        par['calibrations']['slitedges']['sync_predict'] = 'nearest'
+    
+        # Set the default exposure time ranges for the frame typing
+        par['calibrations']['biasframe']['exprng'] = [None, 1]
+        par['calibrations']['arcframe']['exprng'] = [None, 60]
         
+        # Reduction and Extraction Parameters
+        par['reduce']['findobj']['sig_thresh'] = 5.0   # Default: [10.0]
         
-        # # Do not flux calibrate
-        # par['fluxcalib'] = None
-        # # Set the default exposure time ranges for the frame typing
-        # par['calibrations']['biasframe']['exprng'] = [None, 1]
-        # par['calibrations']['darkframe']['exprng'] = [999999, None]     # No dark frames
-        # par['calibrations']['pinholeframe']['exprng'] = [999999, None]  # No pinhole frames
-        # par['calibrations']['arcframe']['exprng'] = [None, 120]
-        # par['calibrations']['standardframe']['exprng'] = [None, 120]
-        # par['scienceframe']['exprng'] = [90, None]
-
-        # # Extraction
-        # par['reduce']['skysub']['bspline_spacing'] = 0.8
-        # par['reduce']['skysub']['no_poly'] = True
-        # par['reduce']['skysub']['bspline_spacing'] = 0.6
-        # par['reduce']['skysub']['joint_fit'] = False
-        # par['reduce']['skysub']['global_sky_std']  = False
-
-        par['reduce']['extraction']['sn_gauss'] = 4.0
-        par['reduce']['findobj']['sig_thresh'] = 5.0
-        par['reduce']['skysub']['sky_sigrej'] = 5.0
-        par['reduce']['findobj']['find_trim_edge'] = [5,5]
-
-        # # cosmic ray rejection parameters for science frames
-        # par['scienceframe']['process']['sigclip'] = 5.0
-        # par['scienceframe']['process']['objlim'] = 2.0
-
         # Sensitivity function parameters
-        par['sensfunc']['polyorder'] = 7
-
-        # # Do not correct for flexure
-        # par['flexure']['spec_method'] = 'skip'
-
+        par['sensfunc']['polyorder'] = 7  # Default: 5
+        
         return par
 
     def bpm(self, filename, det, shape=None, msbias=None):
@@ -285,13 +270,8 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         # Call the base-class method to generate the empty bpm
         bpm_img = super().bpm(filename, det, shape=shape, msbias=msbias)
 
-        if det == 1:
-            msgs.info("Using hard-coded BPM for DeVeny")
-
-            bpm_img[:, -1] = 1
-
-        else:
-            msgs.error(f"Invalid detector number, {det}, for LDT/DeVeny (only one detector).")
+        msgs.info("Using hard-coded BPM for DeVeny")
+        bpm_img[:, 0] = 1
 
         return bpm_img
 
@@ -381,9 +361,31 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         # Start with instrument wide
         par = super().config_specific_par(scifile, inp_par=inp_par)
     
-        # Wavelength calibrations
-        if self.get_meta_value(scifile, 'dispname') == 'DV4 (400/8000)':
+        # Set parameters based on grating used:
+        grating = self.get_meta_value(scifile, 'dispname')
+        if grating == 'DV1 (150/5000)':
+            pass
+        elif grating == 'DV2 (300/4000)':
+            pass
+        elif grating == 'DV3 (300/6750)':
+            pass
+        elif grating == 'DV4 (400/8000)':
+            # Wavelength calibrations
             par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_deveny_DV4.fits'
+        elif grating == 'DV5 (500/5500)':
+            pass
+        elif grating == 'DV6 (600/4900)':
+            pass
+        elif grating == 'DV7 (600/6750)':
+            pass
+        elif grating == 'DV8 (831/8000)':
+            pass
+        elif grating == 'DV9 (1200/5000)':
+            pass
+        elif grating == 'DV10 (2160/5000)':
+            pass
+        else:
+            pass
 
         return par
 
