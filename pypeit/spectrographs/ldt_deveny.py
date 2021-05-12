@@ -210,7 +210,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         # Wavelength Calibration Parameters
         # Include all the lamps available on DeVeny
         par['calibrations']['wavelengths']['lamps'] = ['NeI', 'ArI', 'ArII', 'CdI', 'HgI']
-        #par['calibrations']['wavelengths']['method'] = 'reidentify'
+        #par['calibrations']['wavelengths']['method'] = 'full_template'
         # These are changes from defaults from another spectrograph...
         # TODO: Not sure if we will need to adjust these at some point
         #par['calibrations']['wavelengths']['n_first'] = 3  # Default: 2
