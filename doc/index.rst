@@ -106,6 +106,7 @@ What this version provides
   * MDM/OSMOS
   * MMT/MMIRS
   * MMT/binospec
+  * MMT/bluechannel
   * NOT/ALFOSC
   * P200/DBSP
   * P200/TripleSpec
