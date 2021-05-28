@@ -136,6 +136,17 @@ class WaveTilts(datamodel.DataContainer):
         mtch = self.spat_id == spat_id
         return np.where(mtch)[0][0]
 
+    # TODO This method needs to be written for use with pypeit/scripts/chk_tilts.py
+    # Calling code (lines 49-51, as of 2021/05/21):
+    #    # Show
+    #      cname = None if args.slit is None else 'Slit{:03d}'.format(args.slit)
+    #      wTilts.show(args.option, slit=args.slit, cname=cname)
+    def show(self, option, slit=None, cname=None):
+        """
+        Show one of the class internals
+        """
+        msgs.warn("Ginga display of the WaveTilts Master not implemented at this time.")
+
 
 class BuildWaveTilts:
     """
