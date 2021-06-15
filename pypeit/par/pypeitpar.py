@@ -2439,9 +2439,9 @@ class WavelengthSolutionPar(ParSet):
                          'Options are: {0}'.format(', '.join(options['refframe']))
 
         defaults['wvrange'] = None
-        dtypes['wvrange'] = [int, float, list]
+        dtypes['wvrange'] = [list]
         descr['wvrange'] = 'Wavelength range to truncate input arc lamp linelists at for ' \
-                           'holy-grail wavelength callibration.'
+                           'holy-grail wavelength callibration.  [wv_min, wv_max]'
 
         # Instantiate the parameter set
         super(WavelengthSolutionPar, self).__init__(list(pars.keys()),

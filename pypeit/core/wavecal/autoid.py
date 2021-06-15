@@ -1444,8 +1444,10 @@ class HolyGrail:
 
         # Cut the self._wvdata to the limits specified in self._wvrange
         if self._wvrange is not None:
-            ww = np.where((float(self._wvrange[0]) < self._wvdata) & (self._wvdata < float(self._wvrange[-1])))
-            self._wvdata = self._wvdata[ww]
+            # Check that _wvrange is in order [min, max]
+            if float(self._wvrange[0]) < float(self._wvrange[1]):
+                ww = np.where((float(self._wvrange[0]) < self._wvdata) & (self._wvdata < float(self._wvrange[-1])))
+                self._wvdata = self._wvdata[ww]
 
         # Find the wavelength solution!
         # KD Tree algorithm only works for ThAr - check first that this is what is being used
