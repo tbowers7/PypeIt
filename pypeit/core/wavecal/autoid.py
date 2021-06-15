@@ -1386,6 +1386,9 @@ class HolyGrail:
         self._binw = binw
         self._bind = bind
 
+        # Try adding wavelength-cropping parameter
+        self._wvrange = self._par['wvrange']
+
         # Mask info
         if ok_mask is None:
             self._ok_mask = np.arange(self._nslit)
@@ -1438,6 +1441,11 @@ class HolyGrail:
         # Generate the final linelist and sort
         self._wvdata = np.array(self._tot_list['wave'].data)  # Removes mask if any
         self._wvdata.sort()
+
+        # Cut the self._wvdata to the limits specified in self._wvrange
+        if self._wvrange is not None:
+            ww = np.where((float(self._wvrange[0]) < self._wvdata) & (self._wvdata < float(self._wvrange[-1])))
+            self._wvdata = self._wvdata[ww]
 
         # Find the wavelength solution!
         # KD Tree algorithm only works for ThAr - check first that this is what is being used

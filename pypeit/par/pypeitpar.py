@@ -2192,7 +2192,7 @@ class WavelengthSolutionPar(ParSet):
                  rms_threshold=None, match_toler=None, func=None, n_first=None, n_final=None,
                  sigrej_first=None, sigrej_final=None, wv_cen=None, disp=None, numsearch=None,
                  nfitpix=None, IDpixels=None, IDwaves=None, refframe=None,
-                 nsnippet=None):
+                 nsnippet=None, wvrange=None):
 
         # Grab the parameter names and values from the function
         # arguments
@@ -2438,6 +2438,11 @@ class WavelengthSolutionPar(ParSet):
         descr['refframe'] = 'Frame of reference for the wavelength calibration.  ' \
                          'Options are: {0}'.format(', '.join(options['refframe']))
 
+        defaults['wvrange'] = None
+        dtypes['wvrange'] = [int, float, list]
+        descr['wvrange'] = 'Wavelength range to truncate input arc lamp linelists at for ' \
+                           'holy-grail wavelength callibration.'
+
         # Instantiate the parameter set
         super(WavelengthSolutionPar, self).__init__(list(pars.keys()),
                                                     values=list(pars.values()),
@@ -2455,7 +2460,7 @@ class WavelengthSolutionPar(ParSet):
                    'fwhm', 'fwhm_fromlines', 'reid_arxiv', 'nreid_min', 'cc_thresh', 'cc_local_thresh',
                    'nlocal_cc', 'rms_threshold', 'match_toler', 'func', 'n_first','n_final',
                    'sigrej_first', 'sigrej_final', 'wv_cen', 'disp', 'numsearch', 'nfitpix',
-                   'IDpixels', 'IDwaves', 'refframe', 'nsnippet']
+                   'IDpixels', 'IDwaves', 'refframe', 'nsnippet','wvrange']
 
         badkeys = np.array([pk not in parkeys for pk in k])
         if np.any(badkeys):
