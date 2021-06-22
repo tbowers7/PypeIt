@@ -235,10 +235,6 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         par['calibrations']['tilts']['spat_order'] = 4  # Default: 3
         par['calibrations']['tilts']['spec_order'] = 5  # Default: 4
     
-        # Set the default exposure time ranges for the frame typing
-        par['calibrations']['biasframe']['exprng'] = [None, 1]
-        par['calibrations']['arcframe']['exprng'] = [None, 60]
-        
         # Reduction and Extraction Parameters
         par['reduce']['findobj']['sig_thresh'] = 5.0   # Default: [10.0]
         
