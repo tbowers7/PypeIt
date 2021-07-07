@@ -207,6 +207,13 @@ class WaveCalib(datamodel.DataContainer):
         Returns:
             `numpy.ndarray`_: The wavelength image.
         """
+        # If using the `wvcalib.fits` output from `pypeit_identify` in place of the
+        #  `MasterWaveCalib_*.fits` for wavelength calibration (i.e. using a manual
+        #  calibration), need to create the needed parts of the `self.strpar` string
+        #  to pass the checks below.
+        if self.strpar is None:
+            self.strpar = '{"echelle": false}'
+
         # Check spatial flexure type
         if (spat_flexure is not None) and (not isinstance(spat_flexure, float)):
             msgs.error("Spatial flexure must be None or float")

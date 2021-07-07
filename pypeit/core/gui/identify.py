@@ -1058,7 +1058,7 @@ class Identify(object):
                     n_final=self._fitdict["polyorder"],
                     sigrej_first=self.par['sigrej_first'],
                     sigrej_final=self.par['sigrej_final'])
-                final_fit.spat_id = self._slit
+                final_fit.spat_id = int(self._spatid)
 
                 # Update the fitdict
                 #for key in final_fit:
