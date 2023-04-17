@@ -141,7 +141,7 @@ class COTSSpectrograph(spectrograph.Spectrograph):
         # Required (core)
         self.meta['ra'] = dict(card=None, compound=True)
         self.meta['dec'] = dict(card=None, compound=True)
-        self.meta['target'] = dict(ext=0, card='OBJECT')
+        self.meta['target'] = dict(card=None, compound=True)
         self.meta['dispname'] = dict(card=None, compound=True)
         self.meta['decker'] = dict(card=None, compound=True)
         self.meta['binning'] = dict(card=None, compound=True)
@@ -179,6 +179,10 @@ class COTSSpectrograph(spectrograph.Spectrograph):
 
         if meta_key == 'airmass':
             return headarr[0].get('AIRMASS', 1.0)
+
+        if meta_key == 'target':
+            # Replace any spaces with underscores in the object name
+            return headarr[0]['OBJECT'].replace(" ","_")
 
         if meta_key == 'dispname':
             return GRATING_NAME
@@ -303,7 +307,7 @@ class COTSSpectrograph(spectrograph.Spectrograph):
         # Arc lamps used
         par['calibrations']['wavelengths']['lamps'] = ARC_LAMPS
         # Set this as default... but use `holy-grail` for DV4, DV8
-        par['calibrations']['wavelengths']['method'] = 'full_template'
+        par['calibrations']['wavelengths']['method'] = 'holy-grail'
         # The DeVeny arc line FWHM varies based on slitwidth used
         par['calibrations']['wavelengths']['fwhm_fromlines'] = True
         par['calibrations']['wavelengths']['nsnippet'] = 1  # Default: 2
