@@ -1,7 +1,28 @@
 """
 Module for small-aperture telescopes running commercial equipment
 
-For now, assuming MaxIm DL as the image-capture software
+This module is designed to encompass the configuration parameters for small-
+aperture telesceopes equiped with commercial spectrographs.  The aim is to
+open use of PypeIt to research institutions running this type of smaller, 
+non-custom equipment and the amateur community.
+
+While most of the major astronomical observatories supported in PypeIt have
+custom spectrographs where the detector is inseparable from the instrument
+and telescope, this application is quite the opposite.  Any number of observers
+could be using the same, `e.g.`, Shelyak LISA spectrograph with a variety of
+commercial CCD or CMOS cameras on telescopes of varying dimension and focal
+ratio. Because of this, the spectrgraph class has been teased apart to include
+portions for the detector, instrument, and telescope separately.
+
+At present, the module begins with a series of user-adjusted parameters for
+the three components of the spectrograph system.  It will likely be useful to
+offload these parameters into a separate configuration file elsewhere on the
+user's machine (possibly installed via the caching mechanism) so that the
+user need not dig into the guts of the installed PypeIt package to find these
+parameters for adjustment.
+
+For now, assuming MaxIm DL as the image-capture software, but will need to
+generalize as other software is supported here.
 
 .. include:: ../include/links.rst
 """
@@ -9,7 +30,7 @@ import numpy as np
 
 from astropy.coordinates import EarthLocation
 from astropy.time import Time
-from astropy import units
+import astropy.units as u
 
 from pypeit import io
 from pypeit import msgs
@@ -19,33 +40,34 @@ from pypeit.images import detector_container
 from pypeit.par.pypeitpar import TelescopePar
 from pypeit.spectrographs import spectrograph
 
-units.add_enabled_units(units.imperial.ft)
+# Imperial units, what-what?
+u.add_enabled_units(u.imperial.ft)
 
 
 #======== USER TO FILL IN PARAMETERS HERE FOR THEIR OBSERVATORY ========#
 
 # Observatory and Telescope Parameters
 ADDRESS = "1400 W Mars Hill Rd.  Flagstaff, AZ 86001"  # Observatory address
-ELEVATION = 1200 * units.imperial.ft  # Observatory elevation in feet
-TEL_APERTURE = 0.508  # Telescope Aperture in meters
-TEL_FOCLEN = 3.454  # Telesceop Focal Length in meters
+ELEVATION = 1200 * u.imperial.ft  # Observatory elevation
+TEL_APERTURE = 508 * u.mm  # Telescope Aperture
+TEL_FOCLEN = 3.454 * u.m  # Telesceop Focal Length
 TEL_CENOBSTR = 0.39  # Central Obscuration Fraction by Diameter
 
 # Spectrograph Parameters
 HORIZONTAL_SPECTRUM = True  # Spectrum is horizontal on chip
-RED_TO_RIGHT = True  # Wavelength increases to the right on chip
+RED_TO_HIGHER_PIXNUM = True  # Wavelength increases with pixel number on chip
 GRATING_NAME = 'Shelyak LISA 300/5000'  # Something to identify the grating
-GRATING_ANGLE = 45  # Something to identify the grating tilt
-SLIT_WIDTH = 23.0  # Slit width in microns
+GRATING_ANGLE = 45 * u.degree  # Something to identify the grating tilt
+SLIT_WIDTH = 23.0 * u.micron  # Slit width
 SPEC_CAMERA_DEMAG = 0.68  # The demagnification factor by the spectral camera optics
 ARC_LAMPS = ['NeI', 'ArI']  # The reference arc line lists to use
 
 # Camera Parameters
 INSTRUME_KWD = "Atik Cameras"  # The INSTRUME keyword from the FITS headers
-DARK_CURRENT = 0.001  # electrons per second
-GAIN = 0.28  # e-/ADU (measured)
-READ_NOISE = 4.0  # e-
-PIXEL_SIZE = 6.45  # microns
+DARK_CURRENT = 0.001 * u.electron / u.second  # Dark Current
+GAIN = 0.28 * u.electron / u.adu  # e-/ADU (measured)
+READ_NOISE = 4.0 * u.electron  # e-
+PIXEL_SIZE = 6.45 * u.micron  # Size of each pixel
 
 
 #======== THE REMAINDER OF THIS FILE SHOULD REMAIN UNTOUCHED ========#
@@ -55,12 +77,12 @@ class SmallApTelescopePar(TelescopePar):
     def __init__(self):
         self.loc = EarthLocation.of_address(ADDRESS)
         super(SmallApTelescopePar, self).__init__(
-            longitude=self.loc.lon.to(units.deg).value,
-            latitude=self.loc.lat.to(units.deg).value,
-            elevation=ELEVATION.to(units.m).value,
-            fratio=TEL_FOCLEN / TEL_APERTURE,
-            diameter=TEL_APERTURE,
-            eff_aperture=np.pi * TEL_APERTURE**2 / 4. * (1. - TEL_CENOBSTR**2)
+            longitude=self.loc.lon.to(u.deg).value,
+            latitude=self.loc.lat.to(u.deg).value,
+            elevation=ELEVATION.to(u.m).value,
+            fratio=(TEL_FOCLEN / TEL_APERTURE).value,
+            diameter=TEL_APERTURE.to(u.m).value,
+            eff_aperture=(np.pi * TEL_APERTURE**2 / 4. * (1. - TEL_CENOBSTR**2)).to(u.m**2).value
         )
 
 
@@ -77,8 +99,8 @@ class COTSSpectrograph(spectrograph.Spectrograph):
     comment = 'Commercial-Off-The-Shelf Spectrographs'
     supported = False
 
-    PLATE_SCALE = 206265. / TEL_FOCLEN / 1.0e3  # arcsec / mm at the focal plane
-    PIXEL_SCALE = PLATE_SCALE * (PIXEL_SIZE / 1.0e3) / SPEC_CAMERA_DEMAG  # arcsec / pixel
+    PLATE_SCALE = (206265. * u.arcsec / TEL_FOCLEN).to(u.arcsec/u.mm) # arcsec / mm at the focal plane
+    PIXEL_SCALE = (PLATE_SCALE * PIXEL_SIZE / SPEC_CAMERA_DEMAG).to(u.arcsec)  # arcsec / pixel
 
     # Parameters equal to the PypeIt defaults, shown here for completeness
     # pypeline = 'MultiSlit'
@@ -115,16 +137,16 @@ class COTSSpectrograph(spectrograph.Spectrograph):
             det             = 1,
             dataext         = 0,
             specaxis        = int(HORIZONTAL_SPECTRUM), # Native spectrum axis (1 = x)
-            specflip        = not RED_TO_RIGHT,         # Flip the spectrum if blue to right
+            specflip        = not RED_TO_HIGHER_PIXNUM, # Flip the spectrum if blue to right
             spatflip        = False,
-            platescale      = self.PIXEL_SCALE,         # Arcsec / pixel
-            darkcurr        = DARK_CURRENT*3600,        # Electrons per hour
+            platescale      = self.PIXEL_SCALE.value,   # Arcsec / pixel
+            darkcurr        = DARK_CURRENT.to(u.electron/u.h).value, # Electrons per hour
             saturation      = 65535.,                   # 16-bit ADC
             nonlinear       = 0.95,                     # Linear to 95% of saturation
             mincounts       = -1e10,
             numamplifiers   = 1,
-            gain            = np.atleast_1d(GAIN),      # e-/ADU (measured)
-            ronoise         = np.atleast_1d(READ_NOISE),# e-
+            gain            = np.atleast_1d(GAIN.to(u.electron/u.adu).value), # e-/ADU (measured)
+            ronoise         = np.atleast_1d(READ_NOISE.to(u.electron).value), # e-
             datasec         = np.atleast_1d('[:,:]'),   # The whole thing
         )
         return detector_container.DetectorContainer(**detector_dict)
@@ -191,8 +213,12 @@ class COTSSpectrograph(spectrograph.Spectrograph):
             return 'None'
 
         if meta_key == 'binning':
-            binspec = headarr[0]['XBINNING']
-            binspatial = headarr[0]['YBINNING']
+            if HORIZONTAL_SPECTRUM:
+                binspec = headarr[0]['XBINNING']
+                binspatial = headarr[0]['YBINNING']
+            else:
+                binspec = headarr[0]['YBINNING']
+                binspatial = headarr[0]['XBINNING']
             return parse.binning2string(binspec, binspatial)
 
         if meta_key == 'mjd':
@@ -201,10 +227,10 @@ class COTSSpectrograph(spectrograph.Spectrograph):
             return ttime.mjd
 
         if meta_key == 'dispangle':
-            return GRATING_ANGLE
+            return GRATING_ANGLE.to(u.deg).value
 
         if meta_key == 'slitwid':
-            return np.round(self.PLATE_SCALE * (SLIT_WIDTH / 1.0e3), 2)
+            return np.round((SLIT_WIDTH * self.PLATE_SCALE).to(u.arcsec).value, 2)
 
         msgs.error(f"Not ready for compound meta {meta_key} for COTS Spectrograph")
 
