@@ -1,0 +1,28 @@
+# Observatory and Telescope Parameters
+telescope:
+  address: "950 N. Cherry Ave. Tucson, AZ 85719"  # Observatory address
+  elevation: [0, ft]  # Observatory elevation
+  tel_aperture: [100, mm]  # Telescope Aperture
+  tel_foclen: [5.0, m]  # Telescope Focal Length
+  tel_cenobstr: 0.1  # Central Obscuration Fraction by Diameter
+
+# Spectrograph Parameters
+spectrograph:
+  horiz_spectrum: True  # Spectrum is horizontal on chip
+  red_to_higher_pixnum: True  # Wavelength increases with pixel number on chip
+  grating_name: ""  # Something to identify the grating
+  grating_angle: [45, degree]  # Something to identify the grating tilt
+  slit_width: [10.0, micron]  # Slit width
+  spec_camera_demag: 0.5  # The demagnification factor by the spectral camera optics
+  arc_lamps:   # The reference arc line lists to use
+    - NeI
+    - ArI
+    - KrI
+
+# Camera Parameters
+camera:
+  instrume_kwd: ""  # The INSTRUME keyword from the FITS headers
+  dark_current: [0.001, electron/second]  # Dark Current
+  gain: [1, electron/adu]  # e-/ADU (measured)
+  read_noise: [0.0, electron]  # e-
+  pixel_size: [15., micron]  # Size of each pixel

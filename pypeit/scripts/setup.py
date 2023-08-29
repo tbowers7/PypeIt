@@ -60,6 +60,9 @@ class Setup(scriptbase.ScriptBase):
                                  'them.')
         parser.add_argument('-G', '--gui', default=False, action='store_true',
                             help='Run setup in a GUI')        
+        parser.add_argument('--cots_conffile',default=None, type=str,
+                            help='Filename (no path) of the COTS configuration file.  This file '
+                                 'must be in the user\'s PypeIt cache (~/.pypeit/)')
 
         # NOTE: These are only used to prevent updates to some of the automated
         # document building just based on changes in the pypeit version or the
@@ -115,8 +118,16 @@ class Setup(scriptbase.ScriptBase):
             gui_args = SetupGUI.parse_args(setup_gui_argv)
             SetupGUI.main(gui_args)
 
+        # If using ``smallap_cots``, check that the configuration file is specified
+        if args.spectrograph == 'smallap_cots':
+            if args.cots_conffile is None or not Path.home().joinpath('.pypeit', args.cots_conffile).exists():
+                msgs.error(f'For {args.spectrograph}, you must also specify the location '
+                           f'of the associated configutation file.{msgs.newline()}'
+                           'Consult the documentation on how to create this file.')
+
         # Initialize PypeItSetup based on the arguments
-        ps = PypeItSetup.from_file_root(args.root, args.spectrograph, extension=args.extension)
+        ps = PypeItSetup.from_file_root(args.root, args.spectrograph, extension=args.extension,
+                                        cots_conffile=args.cots_conffile)
         # Run the setup
         ps.run(setup_only=True, clean_config=not args.keep_bad_frames)
 

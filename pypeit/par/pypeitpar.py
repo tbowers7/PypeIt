@@ -2682,7 +2682,7 @@ class ReduxPar(ParSet):
     """
     def __init__(self, spectrograph=None, detnum=None, sortroot=None, calwin=None, scidir=None,
                  qadir=None, redux_path=None, ignore_bad_headers=None, slitspatnum=None,
-                 maskIDs=None, quicklook=None, chk_version=None):
+                 maskIDs=None, quicklook=None, chk_version=None, cots_conffile=None):
 
         # Grab the parameter names and values from the function
         # arguments
@@ -2757,7 +2757,7 @@ class ReduxPar(ParSet):
         descr['qadir'] = 'Directory relative to calling directory to write quality ' \
                          'assessment files.'
 
-        defaults['redux_path'] = os.getcwd()
+        defaults['redux_path'] = str(Path.cwd().resolve())
         dtypes['redux_path'] = str
         descr['redux_path'] = 'Path to folder for performing reductions.  Default is the ' \
                               'current working directory.'
@@ -2772,6 +2772,11 @@ class ReduxPar(ParSet):
                                'bugs that either cause the code to crash or lead to erroneous ' \
                                'results. I.e., you really need to know what you are doing if ' \
                                'you set this to False!'
+
+        defaults['cots_conffile'] = None
+        dtypes['cots_conffile'] = str
+        descr['cots_conffile'] = 'Path to the COTS configuration file.  Only needed for ' \
+                                 'the ``smallap_cots`` spectrograph class.'
 
         # Instantiate the parameter set
         super(ReduxPar, self).__init__(list(pars.keys()),
@@ -2788,7 +2793,7 @@ class ReduxPar(ParSet):
 
         # Basic keywords
         parkeys = [ 'spectrograph', 'quicklook', 'detnum', 'sortroot', 'calwin', 'scidir', 'qadir',
-                    'redux_path', 'ignore_bad_headers', 'slitspatnum', 'maskIDs', 'chk_version']
+                    'redux_path', 'ignore_bad_headers', 'slitspatnum', 'maskIDs', 'chk_version', 'cots_conffile']
 
         badkeys = np.array([pk not in parkeys for pk in k])
         if np.any(badkeys):
@@ -5371,7 +5376,7 @@ class Collate1DPar(ParSet):
         descr['flux'] = "If set, the script will flux calibrate using archived sensfuncs before coadding."
 
         # Directory for output files
-        defaults['outdir'] = os.getcwd()
+        defaults['outdir'] = str(Path.cwd().resolve())
         dtypes['outdir'] = str
         descr['outdir'] = "The path where all coadded output files and report files will be placed."
 

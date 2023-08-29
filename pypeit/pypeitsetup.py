@@ -164,7 +164,7 @@ class PypeItSetup:
                    pypeit_file=filename)
 
     @classmethod
-    def from_file_root(cls, root, spectrograph, extension=None):
+    def from_file_root(cls, root, spectrograph, extension=None, cots_conffile=None):
         """
         Instantiate the :class:`~pypeit.pypeitsetup.PypeItSetup` object by
         providing a file root.
@@ -196,10 +196,10 @@ class PypeItSetup:
             msgs.error(f'Unable to find any raw files for {spec.name} in {root}!')
         else:
             msgs.info(f'Found {nfiles} {spec.name} raw files.')
-        return cls.from_rawfiles(files, spectrograph)
+        return cls.from_rawfiles(files, spectrograph, cots_conffile)
 
     @classmethod
-    def from_rawfiles(cls, data_files:list, spectrograph:str, frametype=None):
+    def from_rawfiles(cls, data_files:list, spectrograph:str, frametype=None, cots_conffile=None):
         """
         Instantiate the :class:`~pypeit.pypeitsetup.PypeItSetup` object by
         providing a list of raw files.
@@ -223,7 +223,9 @@ class PypeItSetup:
 
         # Configure me
         cfg_lines = ['[rdx]']
-        cfg_lines += ['    spectrograph = {0}'.format(spectrograph)]
+        cfg_lines += [f'    spectrograph = {spectrograph}']
+        if cots_conffile is not None:
+            cfg_lines += [f'    cots_conffile = {Path.home().joinpath(cots_conffile).resolve()}']
 
         # Instantiate
         return cls(data_files, cfg_lines=cfg_lines, frametype=frametype)
