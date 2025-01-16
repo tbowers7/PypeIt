@@ -1,4 +1,4 @@
-"""
+r"""
 Module for LDT/NIHTS specific methods.
 
 The Near-Infrared High-Throughput Spectrograph (NIHTS, pronounced "nights")
@@ -25,12 +25,12 @@ import astropy.table
 import astropy.time
 import numpy as np
 
-from pypeit import io
 from pypeit import msgs
 from pypeit import telescopes
 from pypeit.core import framematch
 from pypeit.core import parse
 from pypeit.images import detector_container
+from pypeit.par import pypeitpar
 from pypeit.spectrographs import spectrograph
 
 
@@ -124,7 +124,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         self.meta['ra'] = dict(ext=0, card='RA')
         self.meta['dec'] = dict(ext=0, card='DEC')
         self.meta['target'] = dict(card=None, compound=True)
-        self.meta['dispname'] = dict(card=None, compound=True)
+        self.meta['dispname'] = dict(ext=0, card='INSTRUME')
         self.meta['decker'] = dict(card=None, compound=True)
         self.meta['binning'] = dict(card=None, compound=True)
         self.meta['mjd'] = dict(card=None, compound=True)
@@ -135,10 +135,11 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         # Extras for config and frametyping
         # NOTE: `rtol` is _relative_ tolerance (e.g. 1 part in 1,000)
         self.meta['idname'] = dict(ext=0, card='IMAGETYP')
-        self.meta['cenwave'] = dict(card=None, compound=True, rtol=1e-3)
-        self.meta['filter1'] = dict(card=None, compound=True)
         self.meta['slitwid'] = dict(card=None, compound=True)
         self.meta['lampstat01'] = dict(card=None, compound=True)
+
+        # Extra for nodding
+        self.meta['dithpos'] = dict(card=None, compound=True)
 
     def compound_meta(self, headarr:list, meta_key:str) -> object:
         """
@@ -165,61 +166,31 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             return ttime.mjd
 
         if meta_key == 'lampstat01':
-            # The spectral comparison lamps turned on are listed in `LAMPCAL`, but
-            #  if no lamps are on, then this string is blank.  Return either the
-            #  populated `LAMPCAL` string, or 'off' to ensure a positive entry for
-            #  `lampstat01`.
-            lampcal = headarr[0]['LAMPCAL'].strip()
-            return 'off' if lampcal == '' else lampcal
-
-        if meta_key == 'dispname':
-            # Convert older FITS keyword GRATING (gpmm/blaze) into the newer
-            #  Grating ID names (DVx) for easier identification of disperser.
-            gratings = {"150/5000":"DV1", "300/4000":"DV2", "300/6750":"DV3",
-                        "400/8500":"DV4", "500/5500":"DV5", "600/4900":"DV6",
-                        "600/6750":"DV7", "831/8000":"DV8", "1200/5000":"DV9",
-                        "2160/5000":"DV10", "UNKNOWN":"DVxx"}
-            if (grating_kwd := headarr[0]['GRATING']) not in gratings:
-                msgs.error(f"Grating value {grating_kwd} not recognized.")
-            if grating_kwd == "UNKNOWN":
-                msgs.warn(f"Grating not selected in the LOUI; {msgs.newline()}"
-                          "Fix the header keyword GRATING before proceeding.")
-            return f"{gratings[grating_kwd]} ({grating_kwd})"
+            # NIHTS uses only the Xe lamp attached to the bottom of the
+            #  instrument cube.  The way the scripts are written, the Xe lamp
+            #  is only turned on when the target name "Comparison" with frame
+            #  type "COMPARISON" is used.  There are lamp-off subtraction
+            #  frames taken with target name "Comparison - No Lamps" and frame
+            #  type "COMPARISON".
+            return 'Xe' if (headarr[0]['OBSTYPE'] == 'COMPARISON' and headarr[0]['OBJNAME'] == 'Comparison') else 'off'
 
         if meta_key == 'decker':
-            # Provide a stub for future inclusion of a decker on LDT/DeVeny.
-            return headarr[0]['DECKER'] if 'DECKER' in headarr[0].keys() else 'None'
+            # NIHTS has no decker
+            return 'None'
 
-        if meta_key == 'filter1':
-            # Remove the parenthetical knob position to leave just the filter name
-            return headarr[0]['FILTREAR'].split()[0].upper()
+        if meta_key == 'slitwid':
+            # The width of the slitlet selected in the XCAM GUI for the target
+            #   Stored in the first comment card (Slit:n.nn, Position:N)
+            try:
+                return float(headarr[0]['COMMENT'][0].split(',')[0].split(':')[1])
+            except ValueError:
+                # For calibration frames or SED1/2, use the width of the end slitlets
+                return 4.03
 
-        if meta_key == 'cenwave':
-            # The central wavelength is more descriptive of the grating angle position
-            #  than just the angle value.  Use the DeVeny grating angle formula to
-            #  return the central wavelength of the configuration.
-
-            # Extract lines/mm, catch 'UNKNOWN' grating
-            if (grating_kwd := headarr[0]["GRATING"]) == "UNKNOWN":
-                lpmm = np.inf
-                msgs.warn(f"Grating angle not selected in the LOUI; {msgs.newline()}"
-                          "Fix the header keyword GRANGLE before proceeding.")
-            else:
-                lpmm = float(grating_kwd.split("/")[0])
-
-            # DeVeny Fixed Optical Angles in radians
-            col_grat = np.deg2rad(10.00)  # Collimator-to-Grating Angle
-            cam_col = np.deg2rad(55.00)   # Camera-to-Collimator Angle
-            # Grating angle in radians
-            theta = np.deg2rad(float(headarr[0]['GRANGLE']))
-            # Wavelength in Angstroms
-            wavelen = (
-                (np.sin(col_grat + theta) + np.sin(col_grat + theta - cam_col))  # Angles
-                * 1.0e7                                                 # Angstroms/mm
-                / lpmm                                                  # lines / mm
-            )
-            # Round the wavelength to the nearest 5A
-            return np.around(wavelen / 5, decimals=0) * 5
+        if meta_key == 'dithpos':
+            # The nodding position of the target along the slit
+            #   Stored in the first comment card (Slit:n.nn, Position:N)
+            return headarr[0]['COMMENT'][0].split(',')[1].split(':')[1]
 
         if meta_key == 'target':
             # Revert to TCS's SCITARG if target not set in LOUI for OBJECT frames
@@ -230,9 +201,9 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
                 else headarr[0]["OBJNAME"].strip()
             )
 
-        msgs.error(f"Not ready for compound meta {meta_key} for LDT/DeVeny")
+        msgs.error(f'Not ready for compound meta "{meta_key}" for LDT/NIHTS')
 
-    def configuration_keys(self):
+    def configuration_keys(self) -> list[str]:
         """
         Return the metadata keys that define a unique instrument
         configuration.
@@ -241,35 +212,18 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         identify the unique configurations among the list of frames read
         for a given reduction.
 
+        For NIHTS, there is only one possible configuration (no moving parts),
+        so this method returns an empty list.
+
         Returns:
             :obj:`list`: List of keywords of data pulled from file headers
             and used to constuct the :class:`~pypeit.metadata.PypeItMetaData`
             object.
         """
-        return ['binning']
-
-    def raw_header_cards(self):
-        """
-        Return additional raw header cards to be propagated in
-        downstream output files for configuration identification.
-
-        The list of raw data FITS keywords should be those used to populate
-        the :meth:`~pypeit.spectrographs.spectrograph.Spectrograph.configuration_keys`
-        or are used in :meth:`~pypeit.spectrographs.spectrograph.Spectrograph.config_specific_par`
-        for a particular spectrograph, if different from the name of the
-        PypeIt metadata keyword.
-
-        This list is used by :meth:`~pypeit.spectrographs.spectrograph.Spectrograph.subheader_for_spec`
-        to include additional FITS keywords in downstream output files.
-
-        Returns:
-            :obj:`list`: List of keywords from the raw data files that should
-            be propagated in output files.
-        """
-        return ['GRATING', 'GRANGLE', 'FILTREAR', 'CCDSUM']
+        return []
 
     @classmethod
-    def default_pypeit_par(cls):
+    def default_pypeit_par(cls) -> pypeitpar.PypeItPar:
         """
         Return the default parameters to use for this instrument.
 
@@ -280,11 +234,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         par = super().default_pypeit_par()
 
         # No bias for IRFPAs
-        # Turn off illumflat unless/until we can deal properly with flexure in
-        #   the spatial direction.  All other defaults OK (as of v1.7.0)
-        #   Also, use an order=1 chebyshev polynomial for fitting the overscan
-        #   rather a SavGol filter -- more appropriate for this CCD.
-        set_procpars = dict(use_bias=False, use_illumflat=False)
+        set_procpars = dict(use_biasimage=False, use_illumflat=False)
         par.reset_all_processimages_par(**set_procpars)
 
         # For processing the arc frame, these settings allow for the combination of
@@ -296,14 +246,13 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         par['calibrations']['tiltframe']['process']['combine'] = 'mean'
         # par['calibrations']['tiltframe']['process']['subtract_continuum'] = True
 
-        # Make a bad pixel mask
-        par['calibrations']['bpm_usebias'] = True
-
         # Wavelength Calibration Parameters
         # Arc lamps list from header -- instead of defining the full list here
-        par['calibrations']['wavelengths']['lamps'] = ['use_header']
+        par['calibrations']['wavelengths']['lamps'] = ['XeI']
         # Set this as default... but use `holy-grail` for DV4, DV8
-        par['calibrations']['wavelengths']['method'] = 'full_template'  # Default: 'holy-grail'
+        par['calibrations']['wavelengths']['method'] = 'holy-grail' #'full_template'  # Default: 'holy-grail'
+        # Reidentification parameters
+        par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_nihts.fits'
         # The DeVeny arc line FWHM varies based on slitwidth used
         par['calibrations']['wavelengths']['fwhm'] = 3.0  # Default: 4.0
         par['calibrations']['wavelengths']['nsnippet'] = 1  # Default: 2
@@ -352,7 +301,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
 
         return par
 
-    def check_frame_type(self, ftype:str, fitstbl:astropy.table.Table, exprng=None):
+    def check_frame_type(self, ftype:str, fitstbl:astropy.table.Table, exprng:list=None) -> np.ndarray:
         """
         Check for frames of the provided type.
 
@@ -372,21 +321,25 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             exposures in ``fitstbl`` that are ``ftype`` type frames.
         """
         good_exp = framematch.check_frame_exptime(fitstbl['exptime'], exprng)
-        if ftype == 'bias':
-            return fitstbl['idname'] == 'BIAS'
         if ftype in ['arc', 'tilt']:
-            # FOCUS frames should have frametype None, BIAS is bias regardless of lamp status
+            # FOCUS frames should have frametype None
             return (
                 good_exp
                 & (fitstbl['lampstat01'] != 'off')
                 & (fitstbl['idname'] != 'FOCUS')
-                & (fitstbl['idname'] != 'BIAS')
             )
         if ftype in ['trace', 'pixelflat']:
             return (
                 good_exp
                 & (fitstbl['idname'] == 'DOME FLAT')
                 & (fitstbl['lampstat01'] == 'off')
+                & (["- No Lamp" not in objname for objname in fitstbl['target']])
+            )
+        if ftype == 'dark':
+            return (
+                good_exp
+                &  (fitstbl['lampstat01'] == 'off')
+                & (["- No Lamp" in objname for objname in fitstbl['target']])
             )
         if ftype == 'illumflat':
             return (
@@ -406,19 +359,13 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
                 & (fitstbl['idname'] == 'STANDARD')
                 & (fitstbl['lampstat01'] == 'off')
             )
-        if ftype == 'dark':
-            return (
-                good_exp
-                & (fitstbl['idname'] == 'DARK')
-                & (fitstbl['lampstat01'] == 'off')
-            )
-        if ftype in ['pinhole', 'align', 'sky', 'lampoffflats', 'scattlight']:
-            # DeVeny doesn't have any of these types of frames
+        if ftype in ['bias', 'lampoffflats', 'pinhole', 'align', 'sky', 'scattlight', 'slitless_pixflat']:
+            # NIHTS doesn't have any of these types of frames
             return np.zeros(len(fitstbl), dtype=bool)
         msgs.warn(f"Cannot determine if frames are of type {ftype}")
         return np.zeros(len(fitstbl), dtype=bool)
 
-    def pypeit_file_keys(self):
+    def pypeit_file_keys(self) -> list[str]:
         """
         Define the list of keys to be output into a standard PypeIt file.
 
@@ -427,222 +374,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             :class:`~pypeit.metadata.PypeItMetaData` instance to print to the
             :ref:`pypeit_file`.
         """
-        return super().pypeit_file_keys() + ['dispangle','slitwid','lampstat01']
-
-    def get_lamps(self, fitstbl:astropy.table.Table) -> list:
-        """
-        Extract the list of arc lamps used from header
-
-        .. note::
-
-            Between some faint Cd and Hg lines in the DV9 spectra that are
-            helpful for nailing down the wavelength calibration and various
-            additional lines in Ne and Ar that are not in the main line lists
-            that are regularly identified with DeVeny, use instrument-specific
-            line lists for all 4 lamps.
-
-        Args:
-            fitstbl (`astropy.table.Table`_):
-                The table with the metadata for one or more arc frames.
-        Returns:
-            :obj:`list` : List of the used arc lamps
-        """
-        return [
-            f"{lamp.strip()}I_DeVeny"       # Instrument-Specific List
-            for lamp in np.unique(
-                np.concatenate([lname.split(",") for lname in fitstbl["lampstat01"]])
-            )
-        ]
-
-    def config_specific_par(self, scifile, inp_par=None):
-        """
-        Modify the PypeIt parameters to hard-wired values used for
-        specific instrument configurations.
-
-        Args:
-            scifile (:obj:`str`):
-                File to use when determining the configuration and how
-                to adjust the input parameters.
-            inp_par (:class:`~pypeit.par.parset.ParSet`, optional):
-                Parameter set used for the full run of PypeIt.  If None,
-                use :func:`default_pypeit_par`.
-
-        Returns:
-            :class:`~pypeit.par.parset.ParSet`: The PypeIt parameter set
-            adjusted for configuration specific parameter values.
-        """
-        # Start with instrument-wide parameters
-        par = super().config_specific_par(scifile, inp_par=inp_par)
-
-        # Adjust parameters based on DeVeny grating used
-        grating = self.get_meta_value(scifile, 'dispname')
-
-        # TODO: Compute resolving power on the fly  (e.g., from p200_dbsp)
-        # par['sensfunc']['UVIS']['resolution'] = resolving_power.decompose().value
-
-        if grating == 'DV1 (150/5000)':
-            # Use this `reid_arxiv` with the `full-template` method:
-            par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_deveny_150_HgCdAr.fits'
-            # Because of the wide wavelength range, split DV1 arcs in half for reidentification
-            par['calibrations']['wavelengths']['nsnippet'] = 2
-            # Higher order wavelength fits because of larger span
-            par['calibrations']['wavelengths']['n_first'] = 3  # Default: 2
-            par['calibrations']['wavelengths']['n_final'] = 5  # Default: 4
-            # The approximate resolution of this grating
-            par['sensfunc']['UVIS']['resolution'] = 400
-
-        elif grating == 'DV2 (300/4000)':
-            # Use this `reid_arxiv` with the `full-template` method:
-            par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_deveny_300_HgCdAr.fits'
-            # Higher order wavelength fits because of larger span
-            par['calibrations']['wavelengths']['n_first'] = 3  # Default: 2
-            par['calibrations']['wavelengths']['n_final'] = 5  # Default: 4
-            # The approximate resolution of this grating
-            par['sensfunc']['UVIS']['resolution'] = 800
-
-        elif grating == 'DV3 (300/6750)':
-            # Use this `reid_arxiv` with the `full-template` method:
-            par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_deveny_300_HgCdAr.fits'
-            # Higher order wavelength fits because of larger span
-            par['calibrations']['wavelengths']['n_first'] = 3  # Default: 2
-            par['calibrations']['wavelengths']['n_final'] = 5  # Default: 4
-            # The approximate resolution of this grating
-            par['sensfunc']['UVIS']['resolution'] = 1200
-
-        elif grating == 'DV4 (400/8500)':
-            # We don't have a good `reid_arxiv`` for this grating yet; use `holy-grail`
-            #  and it's associated tweaks in parameters
-            par['calibrations']['wavelengths']['method'] = 'holy-grail'
-            par['calibrations']['wavelengths']['sigdetect'] = 10.0  # Default: 5.0
-            # The approximate resolution of this grating
-            par['sensfunc']['UVIS']['resolution'] = 1800
-
-        elif grating == 'DV5 (500/5500)':
-            # Use this `reid_arxiv` with the `full-template` method:
-            par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_deveny_500_HgCdAr.fits'
-            # The approximate resolution of this grating
-            par['sensfunc']['UVIS']['resolution'] = 1450
-
-        elif grating == 'DV6 (600/4900)':
-            # Use this `reid_arxiv` with the `full-template` method:
-            par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_deveny_600_HgCdAr.fits'
-            # The approximate resolution of this grating
-            par['sensfunc']['UVIS']['resolution'] = 1500
-
-        elif grating == 'DV7 (600/6750)':
-            # Use this `reid_arxiv` with the `full-template` method:
-            par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_deveny_600_HgCdAr.fits'
-            # The approximate resolution of this grating
-            par['sensfunc']['UVIS']['resolution'] = 2000
-
-        elif grating == 'DV8 (831/8000)':
-            # We don't have a good `reid_arxiv`` for this grating yet; use `holy-grail`
-            #  and it's associated tweaks in parameters
-            par['calibrations']['wavelengths']['method'] = 'holy-grail'
-            par['calibrations']['wavelengths']['sigdetect'] = 10.0  # Default: 5.0
-            # The approximate resolution of this grating
-            par['sensfunc']['UVIS']['resolution'] = 3200
-
-        elif grating == 'DV9 (1200/5000)':
-            # Use this `reid_arxiv` with the `full-template` method:
-            par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_deveny_1200_HgCdAr.fits'
-            # The approximate resolution of this grating
-            par['sensfunc']['UVIS']['resolution'] = 3000
-
-        elif grating == 'DV10 (2160/5000)':
-            # Presently unsupported; no parameter changes
-            pass
-
-        else:
-            pass
-
-        # Adjust parameters based on CCD binning
-        binspec, binspat = parse.parse_binning(self.get_meta_value(scifile, 'binning'))
-        par['reduce']['findobj']['find_fwhm'] /= binspat  # Specified in pixels and not arcsec
-        par['flexure']['spec_maxshift'] //= binspec  # Must be an integer
-        par['sensfunc']['UVIS']['resolution'] /= binspec
-
-        # SlitEdges Exclusion Regions (30 pixels at each edge) -- adjust based on binning
-        excl_l, excl_r, last = np.array([30, 485, 515], dtype=int) // binspat
-        par['calibrations']['slitedges']['exclude_regions'] = f"1:0:{excl_l},1:{excl_r}:{last}"
-
-        return par
-
-    def get_rawimage(self, raw_file, det):
-        """
-        Read raw images and generate a few other bits and pieces
-        that are key for image processing.
-
-        For LDT/NIHTS, the LOIS control system automatically adjusts the
-        ``DATASEC`` and ``OSCANSEC`` regions if the detector is used in a binning other
-        than 1x1.  The :meth:`~pypeit.spectrographs.spectrograph.Spectrograph.get_rawimage`
-        method in the base class assumes these sections are fixed and adjusts
-        them based on the binning -- an incorrect assumption for this instrument.
-
-        This method is a stripped-down version of the base class method and
-        additionally does *NOT* send the binning to :func:`~pypeit.core.parse.sec2slice`.
-
-        Parameters
-        ----------
-        raw_file : :obj:`str`
-            File to read
-        det : :obj:`int`
-            1-indexed detector to read
-
-        Returns
-        -------
-        detector_par : :class:`~pypeit.images.detector_container.DetectorContainer`
-            Detector metadata parameters.
-        raw_img : `numpy.ndarray`_
-            Raw image for this detector.
-        hdu : `astropy.io.fits.HDUList`_
-            Opened fits file
-        exptime : :obj:`float`
-            Exposure time *in seconds*.
-        rawdatasec_img : `numpy.ndarray`_
-            Data (Science) section of the detector as provided by setting the
-            (1-indexed) number of the amplifier used to read each detector
-            pixel. Pixels unassociated with any amplifier are set to 0.
-        oscansec_img : `numpy.ndarray`_
-            Overscan section of the detector as provided by setting the
-            (1-indexed) number of the amplifier used to read each detector
-            pixel. Pixels unassociated with any amplifier are set to 0.
-        """
-        # Open
-        hdu = io.fits_open(raw_file)
-
-        # Grab the DetectorContainer and extract the raw image
-        detector = self.get_detector_par(det, hdu=hdu)
-        raw_img = hdu[detector['dataext']].data.astype(float)
-
-        # Exposure time (used by RawImage) from the header
-        headarr = self.get_headarr(hdu)
-        exptime = self.get_meta_value(headarr, 'exptime')
-
-        for section in ['datasec', 'oscansec']:
-            # Get the data section from Detector
-            image_sections = detector[section]
-
-            # Initialize the image (0 means no amplifier)
-            pix_img = np.zeros(raw_img.shape, dtype=int)
-            for i in range(detector['numamplifiers']):
-
-                if image_sections is not None:
-                    # Convert the (FITS) data section from a string to a slice
-                    # DO NOT send the binning (default: None)
-                    datasec = parse.sec2slice(image_sections[i], one_indexed=True,
-                                              include_end=True, require_dim=2)
-                    # Assign the amplifier
-                    pix_img[datasec] = i+1
-
-            # Finish
-            if section == 'datasec':
-                rawdatasec_img = pix_img.copy()
-            else:
-                oscansec_img = pix_img.copy()
-
-        # Return
-        return detector, raw_img, hdu, exptime, rawdatasec_img, oscansec_img
+        return super().pypeit_file_keys() + ['slitwid', 'lampstat01', 'dithpos']
 
     def tweak_standard(self, wave_in, counts_in, counts_ivar_in, gpm_in, meta_table, log10_blaze_function=None):
         """
@@ -726,41 +458,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         return wave_out, counts_out, counts_ivar_out, gpm_out, log10_blaze_function_out
 
     @staticmethod
-    def rotate_trimsections(section_string: str, nspecpix: int):
-        """
-        In order to orient LDT/DeVeny images into the PypeIt-standard
-        configuration, frames are essentially rotated 90º clockwise.  As such,
-        :math:`x' = y` and :math:`y' = -x`.
-
-        The ``TRIMSEC`` / ``BIASSEC`` FITS keywords in LDT/DeVeny data specify
-        the proper regions to be trimmed for the data and overscan arrays,
-        respectively, in the native orientation.  This method performs the
-        rotation and returns the slices for the Numpy image section required
-        by the PypeIt processing routines.
-
-        The LDT/DeVeny FITS header lists the sections as ``'[SPEC_SEC,SPAT_SEC]'``.
-
-        Args:
-            section_string (:obj:`str`):
-                The FITS keyword string to be parsed / translated
-            nspecpix (:obj:`int`):
-                The total number of pixels in the spectral direction
-        Returns:
-            section (`numpy.ndarray`_):
-                Numpy image section needed by PypeIt
-        """
-        # Split out the input section into spectral and spatial pieces
-        spec_sec, spat_sec = section_string.strip('[]').split(',')
-
-        # The spatial section is unchanged, but the spectral section flips
-        #  Add 1 because the pixels are 1-indexed (FITS standard)
-        y2p, y1p = nspecpix - np.array(spec_sec.split(':'), dtype=int) + 1
-
-        # Return the PypeIt-standard Numpy array
-        return np.atleast_1d(f"[{spat_sec},{y1p}:{y2p}]")
-
-    @staticmethod
-    def scrub_isot_dateobs(dt_str: str):
+    def scrub_isot_dateobs(dt_str: str) -> astropy.time.Time:
         """Scrub the input ``DATE-OBS`` for ingestion by AstroPy Time
 
         The main issue this method addresses is that sometimes the LOIS

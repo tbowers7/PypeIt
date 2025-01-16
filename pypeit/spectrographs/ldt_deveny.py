@@ -227,7 +227,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
                 else headarr[0]["OBJNAME"].strip()
             )
 
-        msgs.error(f"Not ready for compound meta {meta_key} for LDT/DeVeny")
+        msgs.error(f'Not ready for compound meta "{meta_key}" for LDT/DeVeny')
 
     def configuration_keys(self):
         """
