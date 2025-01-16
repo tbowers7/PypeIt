@@ -38,13 +38,14 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
     """
     Child to handle LDT/NIHTS specific code
     """
+
     ndet = 1
-    name = 'ldt_nihts'
+    name = "ldt_nihts"
     telescope = telescopes.LDTTelescopePar()
-    camera = 'nihts'
-    url = 'https://lowell.edu/research/telescopes-and-facilities/ldt/nihts/'
-    header_name = 'NIHTS'
-    comment = 'LDT NIHTS IR Spectrograph, 2015 - present'
+    camera = "nihts"
+    url = "https://lowell.edu/research/telescopes-and-facilities/ldt/nihts/"
+    header_name = "NIHTS"
+    comment = "LDT NIHTS IR Spectrograph, 2015 - present"
     supported = True
 
     # Parameters equal to the PypeIt defaults, shown here for completeness
@@ -72,43 +73,41 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             Object with the detector metadata.
         """
         if hdu is None:
-            dataext = 0                     # Raw data
-            binning = '1,1'                 # Most common use mode
-            gain = np.atleast_1d(1.52)      # Hardcoded in the header
-            ronoise = np.atleast_1d(4.9)    # Hardcoded in the header
-            datasec = np.atleast_1d('[4:1022,5:2044]')   # For 1x1 binning
-            oscansec = np.atleast_1d('[0:0,0:0]')     # For 1x1 binning
+            dataext = 0  # Raw data
+            binning = "1,1"  # Most common use mode
+            gain = np.atleast_1d(1.52)  # Hardcoded in the header
+            ronoise = np.atleast_1d(4.9)  # Hardcoded in the header
+            datasec = np.atleast_1d("[4:1022,5:2044]")  # For 1x1 binning
+            oscansec = np.atleast_1d("[0:0,0:0]")  # For 1x1 binning
         else:
             # If file is post-processed, data extension is specified.  Raw is 0.
-            dataext = hdu[0].header.get('POST_EXT', 0)
-            binning = self.get_meta_value(self.get_headarr(hdu), 'binning')
-            gain = np.atleast_1d(hdu[0].header['GAIN'])
-            ronoise = np.atleast_1d(hdu[0].header['RDNOISE'])
-            datasec = self.rotate_trimsections(hdu[0].header['TRIMSEC'],
-                                               hdu[dataext].header['NAXIS1'])
-            oscansec = self.rotate_trimsections(hdu[0].header['BIASSEC'],
-                                               hdu[dataext].header['NAXIS1'])
+            dataext = hdu[0].header.get("POST_EXT", 0)
+            binning = self.get_meta_value(self.get_headarr(hdu), "binning")
+            gain = np.atleast_1d(hdu[0].header["GAIN"])
+            ronoise = np.atleast_1d(hdu[0].header["RDNOISE"])
+            datasec = hdu[0].header["TRIMSEC"]
+            oscansec = hdu[0].header["BIASSEC"]
 
         # Detector
         detector_dict = dict(
-            binning         = binning,
-            det             = 1,        # NIHTS has but one detector
-            dataext         = dataext,
-            specaxis        = 1,        # Native spectrum is along the x-axis
-            specflip        = False,     # NIHTS H1 chip has blue at the left
-            spatflip        = False,
-            platescale      = 0.13,     # Arcsec / pixel
-            darkcurr        = 0.0,      # e-/pixel/hour
-            saturation      = 65535.,   # 16-bit ADC
-            nonlinear       = 0.97,     # Linear to ~97% of saturation
-            mincounts       = -1e10,
-            numamplifiers   = 4,        # NIHTS runs wil all 4 amps
-            gain            = gain,     # See above
-            ronoise         = ronoise,  # See above
+            binning=binning,
+            det=1,  # NIHTS has but one detector
+            dataext=dataext,
+            specaxis=1,  # Native spectrum is along the x-axis
+            specflip=False,  # NIHTS H1 chip has blue at the left
+            spatflip=False,
+            platescale=0.13,  # Arcsec / pixel
+            darkcurr=0.0,  # e-/pixel/hour
+            saturation=65535.0,  # 16-bit ADC
+            nonlinear=0.97,  # Linear to ~97% of saturation
+            mincounts=-1e10,
+            numamplifiers=4,  # NIHTS runs wil all 4 amps
+            gain=gain,  # See above
+            ronoise=ronoise,  # See above
             # Data & Overscan Sections -- Edge tracing can handle slit edges
-            datasec         = datasec,  # See above
-            oscansec        = oscansec  # See above
-            )
+            datasec=datasec,  # See above
+            oscansec=oscansec,  # See above
+        )
         return detector_container.DetectorContainer(**detector_dict)
 
     def init_meta(self):
@@ -121,27 +120,27 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         self.meta = {}
 
         # Required (core)
-        self.meta['ra'] = dict(ext=0, card='RA')
-        self.meta['dec'] = dict(ext=0, card='DEC')
-        self.meta['target'] = dict(card=None, compound=True)
-        self.meta['dispname'] = dict(ext=0, card='INSTRUME')
-        self.meta['decker'] = dict(card=None, compound=True)
-        self.meta['binning'] = dict(card=None, compound=True)
-        self.meta['mjd'] = dict(card=None, compound=True)
-        self.meta['airmass'] = dict(ext=0, card='AIRMASS')
-        self.meta['exptime'] = dict(ext=0, card='EXPTIME')
-        self.meta['instrument'] = dict(ext=0, card='INSTRUME')
+        self.meta["ra"] = dict(ext=0, card="RA")
+        self.meta["dec"] = dict(ext=0, card="DEC")
+        self.meta["target"] = dict(card=None, compound=True)
+        self.meta["dispname"] = dict(ext=0, card="INSTRUME")
+        self.meta["decker"] = dict(card=None, compound=True)
+        self.meta["binning"] = dict(card=None, compound=True)
+        self.meta["mjd"] = dict(card=None, compound=True)
+        self.meta["airmass"] = dict(ext=0, card="AIRMASS")
+        self.meta["exptime"] = dict(ext=0, card="EXPTIME")
+        self.meta["instrument"] = dict(ext=0, card="INSTRUME")
 
         # Extras for config and frametyping
         # NOTE: `rtol` is _relative_ tolerance (e.g. 1 part in 1,000)
-        self.meta['idname'] = dict(ext=0, card='IMAGETYP')
-        self.meta['slitwid'] = dict(card=None, compound=True)
-        self.meta['lampstat01'] = dict(card=None, compound=True)
+        self.meta["idname"] = dict(ext=0, card="IMAGETYP")
+        self.meta["slitwid"] = dict(card=None, compound=True)
+        self.meta["lampstat01"] = dict(card=None, compound=True)
 
         # Extra for nodding
-        self.meta['dithpos'] = dict(card=None, compound=True)
+        self.meta["dithpos"] = dict(card=None, compound=True)
 
-    def compound_meta(self, headarr:list, meta_key:str) -> object:
+    def compound_meta(self, headarr: list, meta_key: str) -> object:
         """
         Methods to generate metadata requiring interpretation of the header
         data, instead of simply reading the value of a header card.
@@ -155,49 +154,58 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         Returns:
             :obj:`object`: Metadata value read from the header(s).
         """
-        if meta_key == 'binning':
+        if meta_key == "binning":
             # Binning in lois headers is space-separated, spec x spat
-            binspec, binspatial = parse.parse_binning(headarr[0]['CCDSUM'])
+            binspec, binspatial = parse.parse_binning(headarr[0]["CCDSUM"])
             return parse.binning2string(binspec, binspatial)
 
-        if meta_key == 'mjd':
+        if meta_key == "mjd":
             # Use custom scrubber + AstroPy to convert 'DATE-OBS' into a mjd.
-            ttime = self.scrub_isot_dateobs(headarr[0]['DATE-OBS'])
+            ttime = self.scrub_isot_dateobs(headarr[0]["DATE-OBS"])
             return ttime.mjd
 
-        if meta_key == 'lampstat01':
+        if meta_key == "lampstat01":
             # NIHTS uses only the Xe lamp attached to the bottom of the
             #  instrument cube.  The way the scripts are written, the Xe lamp
             #  is only turned on when the target name "Comparison" with frame
             #  type "COMPARISON" is used.  There are lamp-off subtraction
             #  frames taken with target name "Comparison - No Lamps" and frame
             #  type "COMPARISON".
-            return 'Xe' if (headarr[0]['OBSTYPE'] == 'COMPARISON' and headarr[0]['OBJNAME'] == 'Comparison') else 'off'
+            return (
+                "Xe"
+                if (
+                    headarr[0]["OBSTYPE"] == "COMPARISON"
+                    and headarr[0]["OBJNAME"] == "Comparison"
+                )
+                else "off"
+            )
 
-        if meta_key == 'decker':
+        if meta_key == "decker":
             # NIHTS has no decker
-            return 'None'
+            return "None"
 
-        if meta_key == 'slitwid':
+        if meta_key == "slitwid":
             # The width of the slitlet selected in the XCAM GUI for the target
             #   Stored in the first comment card (Slit:n.nn, Position:N)
             try:
-                return float(headarr[0]['COMMENT'][0].split(',')[0].split(':')[1])
+                return float(headarr[0]["COMMENT"][0].split(",")[0].split(":")[1])
             except ValueError:
                 # For calibration frames or SED1/2, use the width of the end slitlets
                 return 4.03
 
-        if meta_key == 'dithpos':
+        if meta_key == "dithpos":
             # The nodding position of the target along the slit
             #   Stored in the first comment card (Slit:n.nn, Position:N)
-            return headarr[0]['COMMENT'][0].split(',')[1].split(':')[1]
+            return headarr[0]["COMMENT"][0].split(",")[1].split(":")[1]
 
-        if meta_key == 'target':
+        if meta_key == "target":
             # Revert to TCS's SCITARG if target not set in LOUI for OBJECT frames
             return (
                 headarr[0]["SCITARG"].strip()
-                if (headarr[0]['IMAGETYP'].strip() == "OBJECT"
-                    and headarr[0]["OBJNAME"].strip() in ["UNKNOWN",""])
+                if (
+                    headarr[0]["IMAGETYP"].strip() == "OBJECT"
+                    and headarr[0]["OBJNAME"].strip() in ["UNKNOWN", ""]
+                )
                 else headarr[0]["OBJNAME"].strip()
             )
 
@@ -234,74 +242,82 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         par = super().default_pypeit_par()
 
         # No bias for IRFPAs
-        set_procpars = dict(use_biasimage=False, use_illumflat=False)
+        set_procpars = {"use_biasimage": False, "use_illumflat": False}
         par.reset_all_processimages_par(**set_procpars)
 
         # For processing the arc frame, these settings allow for the combination of
         #   of frames from different lamps into a comprehensible Master
-        par['calibrations']['arcframe']['process']['clip'] = False
-        par['calibrations']['arcframe']['process']['combine'] = 'mean'
+        par["calibrations"]["arcframe"]["process"]["clip"] = False
+        par["calibrations"]["arcframe"]["process"]["combine"] = "mean"
         # par['calibrations']['arcframe']['process']['subtract_continuum'] = True
-        par['calibrations']['tiltframe']['process']['clip'] = False
-        par['calibrations']['tiltframe']['process']['combine'] = 'mean'
+        par["calibrations"]["tiltframe"]["process"]["clip"] = False
+        par["calibrations"]["tiltframe"]["process"]["combine"] = "mean"
         # par['calibrations']['tiltframe']['process']['subtract_continuum'] = True
 
         # Wavelength Calibration Parameters
         # Arc lamps list from header -- instead of defining the full list here
-        par['calibrations']['wavelengths']['lamps'] = ['XeI']
+        par["calibrations"]["wavelengths"]["lamps"] = ["XeI"]
         # Set this as default... but use `holy-grail` for DV4, DV8
-        par['calibrations']['wavelengths']['method'] = 'holy-grail' #'full_template'  # Default: 'holy-grail'
+        par["calibrations"]["wavelengths"][
+            "method"
+        ] = "holy-grail"  #'full_template'  # Default: 'holy-grail'
         # Reidentification parameters
-        par['calibrations']['wavelengths']['reid_arxiv'] = 'ldt_nihts.fits'
+        par["calibrations"]["wavelengths"]["reid_arxiv"] = "ldt_nihts.fits"
         # The DeVeny arc line FWHM varies based on slitwidth used
-        par['calibrations']['wavelengths']['fwhm'] = 3.0  # Default: 4.0
-        par['calibrations']['wavelengths']['nsnippet'] = 1  # Default: 2
+        par["calibrations"]["wavelengths"]["fwhm"] = 3.0  # Default: 4.0
+        par["calibrations"]["wavelengths"]["nsnippet"] = 1  # Default: 2
 
         # Slit-edge settings for long-slit data (DeVeny's slit is > 90" long)
-        par['calibrations']['slitedges']['bound_detector'] = True  # Defualt: False
-        par['calibrations']['slitedges']['sync_predict'] = 'nearest'  # Default: 'pca'
-        par['calibrations']['slitedges']['minimum_slit_length'] = 170.  # Default: None
-        par['calibrations']['slitedges']['max_nudge'] = 5  # Default: None
+        par["calibrations"]["slitedges"]["bound_detector"] = True  # Defualt: False
+        par["calibrations"]["slitedges"]["sync_predict"] = "nearest"  # Default: 'pca'
+        par["calibrations"]["slitedges"]["minimum_slit_length"] = 170.0  # Default: None
+        par["calibrations"]["slitedges"]["max_nudge"] = 5  # Default: None
 
         # Flat-field parameter modification
-        par['calibrations']['flatfield']['pixelflat_min_wave'] = 3000.  # Default: None
-        par['calibrations']['flatfield']['slit_illum_finecorr'] = False  # Default: True
-        par['calibrations']['flatfield']['spec_samp_fine'] = 30  # Default: 1.2
-        par['calibrations']['flatfield']['tweak_slits'] = False  # Default: True
+        par["calibrations"]["flatfield"]["pixelflat_min_wave"] = 3000.0  # Default: None
+        par["calibrations"]["flatfield"]["slit_illum_finecorr"] = False  # Default: True
+        par["calibrations"]["flatfield"]["spec_samp_fine"] = 30  # Default: 1.2
+        par["calibrations"]["flatfield"]["tweak_slits"] = False  # Default: True
 
         # For the tilts, our lines are not as well-behaved as others',
         #   possibly due to the Wynne version E camera.
-        par['calibrations']['tilts']['spat_order'] = 4  # Default: 3
-        par['calibrations']['tilts']['spec_order'] = 5  # Default: 4
+        par["calibrations"]["tilts"]["spat_order"] = 4  # Default: 3
+        par["calibrations"]["tilts"]["spec_order"] = 5  # Default: 4
 
         # Cosmic ray rejection parameters for science frames
-        par['scienceframe']['process']['sigclip'] = 5.0  # Default: 4.5
-        par['scienceframe']['process']['objlim'] = 2.0   # Default: 3.0
+        par["scienceframe"]["process"]["sigclip"] = 5.0  # Default: 4.5
+        par["scienceframe"]["process"]["objlim"] = 2.0  # Default: 3.0
 
         # Object Finding, Extraction, and Sky Subtraction Parameters
         assumed_seeing = 1.5  # arcsec
-        par['reduce']['findobj']['trace_npoly'] = 3   # Default: 5
-        par['reduce']['findobj']['snr_thresh'] = 50.0   # Default: 10.0
-        par['reduce']['findobj']['maxnumber_std'] = 1   # Default: 5
-        par['reduce']['findobj']['maxnumber_sci'] = 5   # Default: 10
-        par['reduce']['findobj']['find_fwhm'] = np.round(assumed_seeing / 0.34, 1)   # Default: 5.0 pix
-        par['reduce']['findobj']['find_trim_edge'] = [0, 0]  # Default: [5, 5]
+        par["reduce"]["findobj"]["trace_npoly"] = 3  # Default: 5
+        par["reduce"]["findobj"]["snr_thresh"] = 50.0  # Default: 10.0
+        par["reduce"]["findobj"]["maxnumber_std"] = 1  # Default: 5
+        par["reduce"]["findobj"]["maxnumber_sci"] = 5  # Default: 10
+        par["reduce"]["findobj"]["find_fwhm"] = np.round(
+            assumed_seeing / 0.34, 1
+        )  # Default: 5.0 pix
+        par["reduce"]["findobj"]["find_trim_edge"] = [0, 0]  # Default: [5, 5]
         # Boxcar width = ±3σ of Gaussian profile = >99% enclosed flux; radius = 1.28 * seeing
-        par['reduce']['extraction']['boxcar_radius'] = np.round(assumed_seeing * 1.28, 1)  # Default: 1.5"
-        par['reduce']['extraction']['use_2dmodel_mask'] = False  # Default: True
-        par['reduce']['skysub']['sky_sigrej'] = 4.0  # Default: 3.0
+        par["reduce"]["extraction"]["boxcar_radius"] = np.round(
+            assumed_seeing * 1.28, 1
+        )  # Default: 1.5"
+        par["reduce"]["extraction"]["use_2dmodel_mask"] = False  # Default: True
+        par["reduce"]["skysub"]["sky_sigrej"] = 4.0  # Default: 3.0
 
         # Flexure Correction Parameters
-        par['flexure']['spec_method'] = 'boxcar'  # Default: 'skip'
-        par['flexure']['spec_maxshift'] = 30  # Default: 20
+        par["flexure"]["spec_method"] = "boxcar"  # Default: 'skip'
+        par["flexure"]["spec_maxshift"] = 30  # Default: 20
 
         # Sensitivity Function Parameters
-        par['sensfunc']['UVIS']['nresln'] = 15  # Default: 20
-        par['sensfunc']['UVIS']['polycorrect'] = False  # Default: True
+        par["sensfunc"]["UVIS"]["nresln"] = 15  # Default: 20
+        par["sensfunc"]["UVIS"]["polycorrect"] = False  # Default: True
 
         return par
 
-    def check_frame_type(self, ftype:str, fitstbl:astropy.table.Table, exprng:list=None) -> np.ndarray:
+    def check_frame_type(
+        self, ftype: str, fitstbl: astropy.table.Table, exprng: list = None
+    ) -> np.ndarray:
         """
         Check for frames of the provided type.
 
@@ -320,46 +336,54 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             `numpy.ndarray`_: Boolean array with the flags selecting the
             exposures in ``fitstbl`` that are ``ftype`` type frames.
         """
-        good_exp = framematch.check_frame_exptime(fitstbl['exptime'], exprng)
-        if ftype in ['arc', 'tilt']:
+        good_exp = framematch.check_frame_exptime(fitstbl["exptime"], exprng)
+        if ftype in ["arc", "tilt"]:
             # FOCUS frames should have frametype None
             return (
                 good_exp
-                & (fitstbl['lampstat01'] != 'off')
-                & (fitstbl['idname'] != 'FOCUS')
+                & (fitstbl["lampstat01"] != "off")
+                & (fitstbl["idname"] != "FOCUS")
             )
-        if ftype in ['trace', 'pixelflat']:
+        if ftype in ["trace", "pixelflat"]:
             return (
                 good_exp
-                & (fitstbl['idname'] == 'DOME FLAT')
-                & (fitstbl['lampstat01'] == 'off')
-                & (["- No Lamp" not in objname for objname in fitstbl['target']])
+                & (fitstbl["idname"] == "DOME FLAT")
+                & (fitstbl["lampstat01"] == "off")
+                & (["- No Lamp" not in objname for objname in fitstbl["target"]])
             )
-        if ftype == 'dark':
+        if ftype == "dark":
             return (
                 good_exp
-                &  (fitstbl['lampstat01'] == 'off')
-                & (["- No Lamp" in objname for objname in fitstbl['target']])
+                & (fitstbl["lampstat01"] == "off")
+                & (["- No Lamp" in objname for objname in fitstbl["target"]])
             )
-        if ftype == 'illumflat':
+        if ftype == "illumflat":
             return (
                 good_exp
-                & (fitstbl['idname'] == 'SKY FLAT')
-                & (fitstbl['lampstat01'] == 'off')
+                & (fitstbl["idname"] == "SKY FLAT")
+                & (fitstbl["lampstat01"] == "off")
             )
-        if ftype == 'science':
+        if ftype == "science":
             return (
                 good_exp
-                & (fitstbl['idname'] == 'OBJECT')
-                & (fitstbl['lampstat01'] == 'off')
+                & (fitstbl["idname"] == "OBJECT")
+                & (fitstbl["lampstat01"] == "off")
             )
-        if ftype == 'standard':
+        if ftype == "standard":
             return (
                 good_exp
-                & (fitstbl['idname'] == 'STANDARD')
-                & (fitstbl['lampstat01'] == 'off')
+                & (fitstbl["idname"] == "STANDARD")
+                & (fitstbl["lampstat01"] == "off")
             )
-        if ftype in ['bias', 'lampoffflats', 'pinhole', 'align', 'sky', 'scattlight', 'slitless_pixflat']:
+        if ftype in [
+            "bias",
+            "lampoffflats",
+            "pinhole",
+            "align",
+            "sky",
+            "scattlight",
+            "slitless_pixflat",
+        ]:
             # NIHTS doesn't have any of these types of frames
             return np.zeros(len(fitstbl), dtype=bool)
         msgs.warn(f"Cannot determine if frames are of type {ftype}")
@@ -374,9 +398,17 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             :class:`~pypeit.metadata.PypeItMetaData` instance to print to the
             :ref:`pypeit_file`.
         """
-        return super().pypeit_file_keys() + ['slitwid', 'lampstat01', 'dithpos']
+        return super().pypeit_file_keys() + ["slitwid", "lampstat01", "dithpos"]
 
-    def tweak_standard(self, wave_in, counts_in, counts_ivar_in, gpm_in, meta_table, log10_blaze_function=None):
+    def tweak_standard(
+        self,
+        wave_in,
+        counts_in,
+        counts_ivar_in,
+        gpm_in,
+        meta_table,
+        log10_blaze_function=None,
+    ):
         """
         This routine is for performing instrument- and/or disperser-specific
         tweaks to standard stars so that sensitivity function fits will be
@@ -432,20 +464,21 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
 
         # If an order-blocking filter was in use, mask blocked region
         #  at "nominal" cutoff value
-        if 'FILTER1' in meta_table.keys():
-            rearfilt = meta_table['FILTER1'].strip()
+        if "FILTER1" in meta_table.keys():
+            rearfilt = meta_table["FILTER1"].strip()
             if rearfilt == "OG570":
                 block_region = wave_out < 5700.0
-            elif rearfilt == 'GG495':
+            elif rearfilt == "GG495":
                 block_region = wave_out < 4950.0
-            elif rearfilt == 'GG420':
+            elif rearfilt == "GG420":
                 block_region = wave_out < 4200.0
-            elif rearfilt == 'WG360':
+            elif rearfilt == "WG360":
                 block_region = wave_out < 3600.0
             else:
                 block_region = wave_out < 0
         # In case the filter didn't make it into the header
-        else: block_region = wave_out < 0
+        else:
+            block_region = wave_out < 0
 
         # Build up the OUTPUT GOOD PIXEL MASK
         gpm_out = (
@@ -497,7 +530,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
 
         # Attempt to directly return the AstroPy Time object
         try:
-            return astropy.time.Time(dt_str, format='isot')
+            return astropy.time.Time(dt_str, format="isot")
         except ValueError:
             # Split out all pieces of the datetime, and recompile
             date, time = dt_str.split("T")
@@ -519,4 +552,4 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             # Reconstitute the DATE-OBS string, and return the Time() object
             date = f"{int(yea):04d}-{int(mon):02d}-{int(day):02d}"
             time = f"{int(hou):02d}:{int(mnt):02d}:{float(sec):09.6f}"
-            return astropy.time.Time(f"{date}T{time}", format='isot')
+            return astropy.time.Time(f"{date}T{time}", format="isot")
