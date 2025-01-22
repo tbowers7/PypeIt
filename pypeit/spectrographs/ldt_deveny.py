@@ -279,8 +279,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         #   the spatial direction.  All other defaults OK (as of v1.7.0)
         #   Also, use an order=1 chebyshev polynomial for fitting the overscan
         #   rather a SavGol filter -- more appropriate for this CCD.
-        set_procpars = dict(use_illumflat=False, overscan_method='chebyshev', overscan_par=1)
-        par.reset_all_processimages_par(**set_procpars)
+        par.reset_all_processimages_par(use_illumflat=False, overscan_method='chebyshev', overscan_par=1)
 
         # For processing the arc frame, these settings allow for the combination of
         #   of frames from different lamps into a comprehensible Master
@@ -710,7 +709,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         return wave_out, counts_out, counts_ivar_out, gpm_out, log10_blaze_function_out
 
     @staticmethod
-    def rotate_trimsections(section_string: str, nspecpix: int):
+    def rotate_trimsections(section_string: str, nspecpix: int) -> np.ndarray:
         """
         In order to orient LDT/DeVeny images into the PypeIt-standard
         configuration, frames are essentially rotated 90º clockwise.  As such,
@@ -760,8 +759,8 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         method attempts to return the `astropy.time.Time`_ object directly, but
         then scrubs any values that cause a ``ValueError``.
 
-        The scrubbing consists of deconstructing the string into its components,
-        then carefully reconstructing it into proper ISO 8601 format.  Also,
+        The scrubbing consists of deconstructing the string into its componen+66ts,
+        then carefully reconstructing it into proper ISO 8601 format.  Also,3
         some recursive edge-case catching is done, but at some point you just
         have to give up and go buy a lottery ticket.
 
