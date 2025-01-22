@@ -1316,9 +1316,13 @@ class Spectrograph:
 
             for section in ['datasec', 'oscansec']:
 
+                msgs.test(section)
                 # Get the data sections from the detector object (see get_detector_par above)
                 # TODO: Add ability to incude user windowing (e.g., Kast Red)
                 image_sections = detectors[i][section]
+
+                msgs.test(f"{image_sections.shape}")
+                msgs.test(f"{image_sections}")
 
                 # Initialize the image (0 means no amplifier)
                 pix_img = np.zeros(raw_img[i].shape, dtype=int)

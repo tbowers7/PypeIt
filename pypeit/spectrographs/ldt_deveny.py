@@ -20,7 +20,6 @@ import numpy as np
 from astropy.table import Table
 from astropy.time import Time
 
-from pypeit import io
 from pypeit import msgs
 from pypeit import telescopes
 from pypeit.core import framematch

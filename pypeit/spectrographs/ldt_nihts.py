@@ -74,19 +74,34 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         """
         if hdu is None:
             dataext = 0  # Raw data
+            numamps = 4  # Most common use mode
             binning = "1,1"  # Most common use mode
-            gain = np.atleast_1d(1.52)  # Hardcoded in the header
-            ronoise = np.atleast_1d(4.9)  # Hardcoded in the header
-            datasec = np.atleast_1d("[4:1022,5:2044]")  # For 1x1 binning
-            oscansec = np.atleast_1d("[0:0,0:0]")  # For 1x1 binning
+            gainarr = np.full(numamps, 24.0)  # Hardcoded in the header
+            ronarr = np.full(numamps, 100.0)  # Hardcoded in the header
+            dsecarr = np.atleast_1d(
+                [
+                    "[4:512,5:1024]",
+                    "[513:1022,5:1024]",
+                    "[4:512,1025:2044]",
+                    "[513:1022,1025:2044]",
+                ]
+            )
         else:
             # If file is post-processed, data extension is specified.  Raw is 0.
             dataext = hdu[0].header.get("POST_EXT", 0)
+            numamps = hdu[0].header.get("NUMAMP", 4)
             binning = self.get_meta_value(self.get_headarr(hdu), "binning")
-            gain = np.atleast_1d(hdu[0].header["GAIN"])
-            ronoise = np.atleast_1d(hdu[0].header["RDNOISE"])
-            datasec = hdu[0].header["TRIMSEC"]
-            oscansec = hdu[0].header["BIASSEC"]
+            gainarr = np.zeros(numamps, dtype=float)
+            ronarr = np.zeros(numamps, dtype=float)
+            dsecarr = np.zeros(numamps, dtype=object)
+
+            for ii in range(numamps):
+                # Assign the gain for this amplifier
+                gainarr[ii] = hdu[0].header[f"GAIN_{ii+1:02d}"]
+                # Assign the readout noise for this amplifier
+                ronarr[ii] = hdu[0].header[f"RN_{ii+1:02d}"]
+                # Assign the trim section for this amplifier
+                dsecarr[ii] = self.rotate_trimsections(hdu[0].header[f"TRIM{ii+1:02d}"])
 
         # Detector
         detector_dict = dict(
@@ -98,15 +113,14 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             spatflip=False,
             platescale=0.13,  # Arcsec / pixel
             darkcurr=0.0,  # e-/pixel/hour
-            saturation=65535.0,  # 16-bit ADC
+            saturation=16000.0,  # From the NIHTS manual
             nonlinear=0.97,  # Linear to ~97% of saturation
             mincounts=-1e10,
-            numamplifiers=4,  # NIHTS runs wil all 4 amps
-            gain=gain,  # See above
-            ronoise=ronoise,  # See above
-            # Data & Overscan Sections -- Edge tracing can handle slit edges
-            datasec=datasec,  # See above
-            oscansec=oscansec,  # See above
+            numamplifiers=numamps,
+            gain=gainarr,  # See above
+            ronoise=ronarr,  # See above
+            # Data Section; No Overscan used for H1 chip
+            datasec=dsecarr,  # See above
         )
         return detector_container.DetectorContainer(**detector_dict)
 
@@ -489,6 +503,35 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         )
 
         return wave_out, counts_out, counts_ivar_out, gpm_out, log10_blaze_function_out
+
+    @staticmethod
+    def rotate_trimsections(section_string: str):
+        """
+        In order to orient LDT/NIHTS images into the PypeIt-standard
+        configuration, frames are flipped over the x=y line.  As such,
+        :math:`x' = y` and :math:`y' = x`.
+
+        The ``TRIMSEC`` / ``BIASSEC`` FITS keywords in LDT/NIHTS data specify
+        the proper regions to be trimmed for the data and overscan arrays,
+        respectively, in the native orientation.  This method performs the
+        rotation and returns the slices for the Numpy image section required
+        by the PypeIt processing routines.
+
+        The LDT/NIHTS FITS header lists the sections as ``'[SPEC_SEC,SPAT_SEC]'``.
+
+        Args:
+            section_string (:obj:`str`):
+                The FITS keyword string to be parsed / translated
+        Returns:
+            section (`numpy.ndarray`_):
+                Numpy image section needed by PypeIt
+        """
+        # Split out the input section into spectral and spatial pieces
+        spec_sec, spat_sec = section_string.strip("[]").split(",")
+
+        # Both the spatial and spectral sections are unchanged.
+        # Return the PypeIt-standard Numpy array
+        return np.atleast_1d(f"[{spat_sec},{spec_sec}]")
 
     @staticmethod
     def scrub_isot_dateobs(dt_str: str) -> astropy.time.Time:
