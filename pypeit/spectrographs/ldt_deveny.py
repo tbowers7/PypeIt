@@ -17,6 +17,7 @@ f/6.1 beam.
 """
 import numpy as np
 
+from astropy.io.fits import HDUList
 from astropy.table import Table
 from astropy.time import Time
 
@@ -25,6 +26,8 @@ from pypeit import telescopes
 from pypeit.core import framematch
 from pypeit.core import parse
 from pypeit.images import detector_container
+from pypeit.par import parset
+from pypeit.par import pypeitpar
 from pypeit.spectrographs import spectrograph
 
 
@@ -45,7 +48,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
     # Parameters equal to the PypeIt defaults, shown here for completeness
     # pypeline = 'MultiSlit'
 
-    def get_detector_par(self, det, hdu=None):
+    def get_detector_par(self, det:int, hdu:HDUList=None) -> detector_container.DetectorContainer:
         """
         Return metadata for the selected detector.
 
@@ -135,6 +138,8 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         self.meta['filter1'] = dict(card=None, compound=True)
         self.meta['slitwid'] = dict(ext=0, card='SLITASEC')
         self.meta['lampstat01'] = dict(card=None, compound=True)
+        self.meta['frameno'] = dict(ext=0, card='OBSERNO')
+        self.meta['utc'] = dict(ext=0, card='UTCSTART')
 
     def compound_meta(self, headarr:list, meta_key:str) -> object:
         """
@@ -228,7 +233,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
 
         msgs.error(f'Not ready for compound meta "{meta_key}" for LDT/DeVeny')
 
-    def configuration_keys(self):
+    def configuration_keys(self) -> list[str]:
         """
         Return the metadata keys that define a unique instrument
         configuration.
@@ -244,7 +249,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         """
         return ['dispname', 'cenwave', 'filter1', 'binning']
 
-    def raw_header_cards(self):
+    def raw_header_cards(self) -> list[str]:
         """
         Return additional raw header cards to be propagated in
         downstream output files for configuration identification.
@@ -264,8 +269,19 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         """
         return ['GRATING', 'GRANGLE', 'FILTREAR', 'CCDSUM']
 
+    def pypeit_file_keys(self) -> list[str]:
+        """
+        Define the list of keys to be output into a standard PypeIt file.
+
+        Returns:
+            :obj:`list` : The list of keywords in the relevant
+            :class:`~pypeit.metadata.PypeItMetaData` instance to print to the
+            :ref:`pypeit_file`.
+        """
+        return super().pypeit_file_keys() + ['utc','dispangle','slitwid','lampstat01']
+
     @classmethod
-    def default_pypeit_par(cls):
+    def default_pypeit_par(cls) -> pypeitpar.PypeItPar:
         """
         Return the default parameters to use for this instrument.
 
@@ -281,6 +297,15 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         #   rather a SavGol filter -- more appropriate for this CCD.
         par.reset_all_processimages_par(use_illumflat=False, overscan_method='chebyshev', overscan_par=1)
 
+        # Make a bad pixel mask
+        par['calibrations']['bpm_usebias'] = True
+
+        # Slit-edge settings for long-slit data (DeVeny's slit is > 90" long)
+        par['calibrations']['slitedges']['bound_detector'] = True  # Defualt: False
+        par['calibrations']['slitedges']['sync_predict'] = 'nearest'  # Default: 'pca'
+        par['calibrations']['slitedges']['minimum_slit_length'] = 170.  # Default: None
+        par['calibrations']['slitedges']['max_nudge'] = 5  # Default: None
+
         # For processing the arc frame, these settings allow for the combination of
         #   of frames from different lamps into a comprehensible Master
         par['calibrations']['arcframe']['process']['clip'] = False
@@ -289,9 +314,6 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         par['calibrations']['tiltframe']['process']['clip'] = False
         par['calibrations']['tiltframe']['process']['combine'] = 'mean'
         # par['calibrations']['tiltframe']['process']['subtract_continuum'] = True
-
-        # Make a bad pixel mask
-        par['calibrations']['bpm_usebias'] = True
 
         # Wavelength Calibration Parameters
         # Arc lamps list from header -- instead of defining the full list here
@@ -302,22 +324,16 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         par['calibrations']['wavelengths']['fwhm'] = 3.0  # Default: 4.0
         par['calibrations']['wavelengths']['nsnippet'] = 1  # Default: 2
 
-        # Slit-edge settings for long-slit data (DeVeny's slit is > 90" long)
-        par['calibrations']['slitedges']['bound_detector'] = True  # Defualt: False
-        par['calibrations']['slitedges']['sync_predict'] = 'nearest'  # Default: 'pca'
-        par['calibrations']['slitedges']['minimum_slit_length'] = 170.  # Default: None
-        par['calibrations']['slitedges']['max_nudge'] = 5  # Default: None
+        # For the tilts, our lines are not as well-behaved as others',
+        #   possibly due to the Wynne version E camera.
+        par['calibrations']['tilts']['spat_order'] = 4  # Default: 3
+        par['calibrations']['tilts']['spec_order'] = 5  # Default: 4
 
         # Flat-field parameter modification
         par['calibrations']['flatfield']['pixelflat_min_wave'] = 3000.  # Default: None
         par['calibrations']['flatfield']['slit_illum_finecorr'] = False  # Default: True
         par['calibrations']['flatfield']['spec_samp_fine'] = 30  # Default: 1.2
         par['calibrations']['flatfield']['tweak_slits'] = False  # Default: True
-
-        # For the tilts, our lines are not as well-behaved as others',
-        #   possibly due to the Wynne version E camera.
-        par['calibrations']['tilts']['spat_order'] = 4  # Default: 3
-        par['calibrations']['tilts']['spec_order'] = 5  # Default: 4
 
         # Cosmic ray rejection parameters for science frames
         par['scienceframe']['process']['sigclip'] = 5.0  # Default: 4.5
@@ -346,7 +362,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
 
         return par
 
-    def check_frame_type(self, ftype:str, fitstbl:Table, exprng=None):
+    def check_frame_type(self, ftype:str, fitstbl:Table, exprng=None) -> np.ndarray:
         """
         Check for frames of the provided type.
 
@@ -412,18 +428,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         msgs.warn(f"Cannot determine if frames are of type {ftype}")
         return np.zeros(len(fitstbl), dtype=bool)
 
-    def pypeit_file_keys(self):
-        """
-        Define the list of keys to be output into a standard PypeIt file.
-
-        Returns:
-            :obj:`list` : The list of keywords in the relevant
-            :class:`~pypeit.metadata.PypeItMetaData` instance to print to the
-            :ref:`pypeit_file`.
-        """
-        return super().pypeit_file_keys() + ['dispangle','slitwid','lampstat01']
-
-    def get_lamps(self, fitstbl:Table) -> list:
+    def get_lamps(self, fitstbl:Table) -> list[str]:
         """
         Extract the list of arc lamps used from header
 
@@ -448,7 +453,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
             )
         ]
 
-    def config_specific_par(self, scifile, inp_par=None):
+    def config_specific_par(self, scifile:str, inp_par:parset.ParSet=None) -> parset.ParSet:
         """
         Modify the PypeIt parameters to hard-wired values used for
         specific instrument configurations.
@@ -743,7 +748,7 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         return np.atleast_1d(f"[{spat_sec},{y1p}:{y2p}]")
 
     @staticmethod
-    def scrub_isot_dateobs(dt_str: str):
+    def scrub_isot_dateobs(dt_str: str) -> Time:
         """Scrub the input ``DATE-OBS`` for ingestion by AstroPy Time
 
         The main issue this method addresses is that sometimes the LOIS

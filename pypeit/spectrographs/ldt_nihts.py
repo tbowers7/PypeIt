@@ -21,6 +21,8 @@ published in `Gustafsson et al.\ (2021) in PASP
 .. include:: ../include/links.rst
 """
 
+import astropy.coordinates
+import astropy.io.fits
 import astropy.table
 import astropy.time
 import numpy as np
@@ -51,7 +53,9 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
     # Parameters equal to the PypeIt defaults, shown here for completeness
     # pypeline = 'MultiSlit'
 
-    def get_detector_par(self, det, hdu=None):
+    def get_detector_par(
+        self, det: int, hdu: astropy.io.fits.HDUList = None
+    ) -> detector_container.DetectorContainer:
         """
         Return metadata for the selected detector.
 
@@ -86,7 +90,6 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             binning = self.get_meta_value(self.get_headarr(hdu), "binning")
             gainarr = np.zeros(numamps, dtype=float)
             ronarr = np.zeros(numamps, dtype=float)
-            dsecarr = np.zeros(numamps, dtype=np.dtypes.StringDType)
 
             for ii in range(numamps):
                 # Assign the gain for this amplifier
@@ -114,10 +117,10 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             #   in the header are incorrect
             datasec=np.atleast_1d(
                 [
-                    "[4:512,4:512]",
-                    "[513:1022,4:512]",
-                    "[4:512,513:1022]",
-                    "[513:1022,513:1022]",
+                    "[:512,:512]",
+                    "[513:,:512]",
+                    "[:512,513:]",
+                    "[513:,513:]",
                 ]
             ),
             oscansec=np.atleast_1d(
@@ -152,14 +155,14 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         self.meta["exptime"] = dict(ext=0, card="EXPTIME")
         self.meta["instrument"] = dict(ext=0, card="INSTRUME")
 
-        # Extras for config and frametyping
+        # Extras for config, frametyping, and nodding
         # NOTE: `rtol` is _relative_ tolerance (e.g. 1 part in 1,000)
         self.meta["idname"] = dict(ext=0, card="IMAGETYP")
         self.meta["slitwid"] = dict(card=None, compound=True)
         self.meta["lampstat01"] = dict(card=None, compound=True)
-
-        # Extra for nodding
+        self.meta["frameno"] = dict(ext=0, card="OBSERNO")
         self.meta["dithpos"] = dict(card=None, compound=True)
+        self.meta["utc"] = dict(ext=0, card="UTCSTART")
 
     def compound_meta(self, headarr: list, meta_key: str) -> object:
         """
@@ -251,6 +254,17 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         """
         return []
 
+    def pypeit_file_keys(self) -> list[str]:
+        """
+        Define the list of keys to be output into a standard PypeIt file.
+
+        Returns:
+            :obj:`list` : The list of keywords in the relevant
+            :class:`~pypeit.metadata.PypeItMetaData` instance to print to the
+            :ref:`pypeit_file`.
+        """
+        return super().pypeit_file_keys() + ["utc", "slitwid", "lampstat01", "dithpos"]
+
     @classmethod
     def default_pypeit_par(cls) -> pypeitpar.PypeItPar:
         """
@@ -267,6 +281,18 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             use_biasimage=False, use_illumflat=False, use_overscan=False
         )
 
+        # Slit-edge settings for NIHTS' slitlets
+        par["calibrations"]["slitedges"]["edge_thresh"] = 15.0  # Default: 20.0
+        par["calibrations"]["slitedges"]["fit_order"] = 2  # Default: 5
+        par["calibrations"]["slitedges"]["max_nudge"] = 5  # Default: None
+        par["calibrations"]["slitedges"]["minimum_slit_length"] = 6.0  # Default: None
+        par["calibrations"]["slitedges"]["smash_range"] = [0.2, 0.5]  # Default: None
+        par["calibrations"]["slitedges"]["sync_predict"] = "nearest"  # Default: 'pca'
+        par["calibrations"]["slitedges"]["trace_thresh"] = 50  # Default: None
+        par["calibrations"]["slitedges"]["trim_spec"] = [0, 50]  # Default: None
+
+        # Only use LONG arc frames
+        par["calibrations"]["arcframe"]["exprng"] = [30, None]
         # For processing the arc frame, these settings allow for the combination of
         #   of frames from different lamps into a comprehensible Master
         par["calibrations"]["arcframe"]["process"]["clip"] = False
@@ -286,25 +312,19 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         # Reidentification parameters
         par["calibrations"]["wavelengths"]["reid_arxiv"] = "ldt_nihts.fits"
         # The DeVeny arc line FWHM varies based on slitwidth used
-        par["calibrations"]["wavelengths"]["fwhm"] = 3.0  # Default: 4.0
+        par["calibrations"]["wavelengths"]["fwhm_fromlines"] = True  # Default: True
         par["calibrations"]["wavelengths"]["nsnippet"] = 1  # Default: 2
 
-        # Slit-edge settings for long-slit data (DeVeny's slit is > 90" long)
-        par["calibrations"]["slitedges"]["bound_detector"] = True  # Defualt: False
-        par["calibrations"]["slitedges"]["sync_predict"] = "nearest"  # Default: 'pca'
-        par["calibrations"]["slitedges"]["minimum_slit_length"] = 170.0  # Default: None
-        par["calibrations"]["slitedges"]["max_nudge"] = 5  # Default: None
+        # # For the tilts, our lines are not as well-behaved as others',
+        # #   possibly due to the Wynne version E camera.
+        # par["calibrations"]["tilts"]["spat_order"] = 4  # Default: 3
+        # par["calibrations"]["tilts"]["spec_order"] = 5  # Default: 4
 
         # Flat-field parameter modification
         par["calibrations"]["flatfield"]["pixelflat_min_wave"] = 3000.0  # Default: None
         par["calibrations"]["flatfield"]["slit_illum_finecorr"] = False  # Default: True
         par["calibrations"]["flatfield"]["spec_samp_fine"] = 30  # Default: 1.2
         par["calibrations"]["flatfield"]["tweak_slits"] = False  # Default: True
-
-        # For the tilts, our lines are not as well-behaved as others',
-        #   possibly due to the Wynne version E camera.
-        par["calibrations"]["tilts"]["spat_order"] = 4  # Default: 3
-        par["calibrations"]["tilts"]["spec_order"] = 5  # Default: 4
 
         # Cosmic ray rejection parameters for science frames
         par["scienceframe"]["process"]["sigclip"] = 5.0  # Default: 4.5
@@ -410,17 +430,6 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             return np.zeros(len(fitstbl), dtype=bool)
         msgs.warn(f"Cannot determine if frames are of type {ftype}")
         return np.zeros(len(fitstbl), dtype=bool)
-
-    def pypeit_file_keys(self) -> list[str]:
-        """
-        Define the list of keys to be output into a standard PypeIt file.
-
-        Returns:
-            :obj:`list` : The list of keywords in the relevant
-            :class:`~pypeit.metadata.PypeItMetaData` instance to print to the
-            :ref:`pypeit_file`.
-        """
-        return super().pypeit_file_keys() + ["slitwid", "lampstat01", "dithpos"]
 
     def tweak_standard(
         self,
