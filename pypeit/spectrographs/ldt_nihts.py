@@ -16,7 +16,13 @@ NIHTS commissioning continued through the 2018A semester with the instrument
 operating in shared risk mode.  The instrument has been available for normal
 science observing since 01 July 2018.  The NIHTS Commissioning work has been
 published in `Gustafsson et al.\ (2021) in PASP
-<https://ui.adsabs.harvard.edu/abs/2021PASP..133c5001G/abstract>`_.  
+<https://ui.adsabs.harvard.edu/abs/2021PASP..133c5001G/abstract>`_.
+
+Other papers for reference are the LDT Instrument Cube SPIE paper by
+`Bida et al.\ (2014)
+<https://ui.adsabs.harvard.edu/abs/2014SPIE.9147E..2NB/abstract>`_
+and the NIHTS SPIE paper by `Dunham et al.\ (2018)
+<https://ui.adsabs.harvard.edu/abs/2018SPIE10702E..3ED/abstract>_`.
 
 .. include:: ../include/links.rst
 """
@@ -34,6 +40,9 @@ from pypeit.core import parse
 from pypeit.images import detector_container
 from pypeit.par import pypeitpar
 from pypeit.spectrographs import spectrograph
+
+# NIHTS slitlet sizes
+SLITS = [4.03, 1.34, 0.81, 0.27, 0.54, 1.07, 1.61]
 
 
 class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
@@ -224,18 +233,13 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         if meta_key == "dithpos":
             # The nodding position of the target along the slit
             #   Stored in the first comment card (Slit:n.nn, Position:N)
-            dpos = str(headarr[0]["COMMENT"][0]).split(",")[1].split(":")[1].strip()
-            swid = (
-                str(headarr[0]["COMMENT"][0])
-                .split(",", maxsplit=1)[0]
-                .split(":")[1]
-                .strip()
-            )
-            if dpos == "Cen" and swid == "None":
+            dpos = str(headarr[0]["COMMENT"][0]).split(",")[1].split(":")[1]
+            swid = str(headarr[0]["COMMENT"][0]).split(",", maxsplit=1)[0].split(":")[1]
+            if dpos.strip() == "Cen" and swid.strip() == "None":
                 # An error in the Cen-Sky script writes "Slit: None, Position:Cen"
                 #   instead of "Slit: {slit}, Position:Sky"
                 return "Sky"
-            # Return the value from the header
+            # Otherwise, return the value from the header
             return dpos
 
         if meta_key == "target":
@@ -292,23 +296,20 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         """
         par = super().default_pypeit_par()
 
-        # No bias or overscan for IRFPAs
+        # No bias or overscan or darks for IRFPAs
         par.reset_all_processimages_par(
-            use_biasimage=False,
-            use_overscan=False,
-            use_darkimage=True,
-            use_illumflat=False,
+            use_biasimage=False, use_overscan=False, use_darkimage=False, use_illumflat=False, 
         )
-
-        # Do not use Dark image for Dark frame procesing
-        par["calibrations"]["darkframe"]["process"]["use_darkimage"] = False
 
         # Slit-edge settings for NIHTS' slitlets
         par["calibrations"]["slitedges"]["edge_thresh"] = 15.0  # Default: 20.0
+        par["calibrations"]["slitedges"]["exclude_regions"] = "1:900:1024"  # Default: None
         par["calibrations"]["slitedges"]["fit_order"] = 2  # Default: 5
+        par["calibrations"]["slitedges"]["gap_offset"] = 0  # Default: 5
         par["calibrations"]["slitedges"]["max_nudge"] = 5  # Default: None
-        par["calibrations"]["slitedges"]["minimum_slit_length"] = 6.0  # Default: None
-        par["calibrations"]["slitedges"]["smash_range"] = [0.2, 0.5]  # Default: None
+        par["calibrations"]["slitedges"]["minimum_slit_gap"] = 0  # Default: None
+        par["calibrations"]["slitedges"]["minimum_slit_length"] = 10.0  # Default: None
+        # par["calibrations"]["slitedges"]["smash_range"] = [0.2, 0.5]  # Default: None
         par["calibrations"]["slitedges"]["sync_predict"] = "nearest"  # Default: 'pca'
         par["calibrations"]["slitedges"]["trace_thresh"] = 50  # Default: None
         par["calibrations"]["slitedges"]["trim_spec"] = [0, 50]  # Default: None
@@ -415,11 +416,11 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
                 & (fitstbl["lampstat01"] == "off")
                 & (["- No Lamp" not in objname for objname in fitstbl["target"]])
             )
-        if ftype == "dark":
+        if ftype == "lampoffflats":
             return (
                 good_exp
                 & (fitstbl["lampstat01"] == "off")
-                & (["- No Lamp" in objname for objname in fitstbl["target"]])
+                & (["Dome Flats - No Lamps" in objname for objname in fitstbl["target"]])
             )
         if ftype == "illumflat":
             return (
@@ -441,7 +442,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             )
         if ftype in [
             "bias",
-            "lampoffflats",
+            "dark",
             "pinhole",
             "align",
             "sky",
@@ -479,15 +480,95 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         Returns:
             `astropy.table.Table`_: The validated metadata table
         """
-        # The "Sky" portion of the Cen/Sky dither pattern
+        # The "Sky" portion of the Cen/Sky dither pattern (row numbers in the table)
         sky_idx = np.arange(len(fitstbl), dtype=int)[fitstbl["dithpos"] == "Sky"]
+
+        # If no frames are from Cen/Sky dithers, return the input table now
+        if len(sky_idx) == 0:
+            return fitstbl
+
         # The "Cen" portion of the Cen/Sky dither pattern is the previous frame
-        cen_idx = sky_idx - 1
+        # Place the "Cen" slit width into the "Sky" slit width
+        fitstbl["slitwid"][sky_idx] = fitstbl["slitwid"][sky_idx - 1]
 
-        # Place the "Cen" slit width into the "Sky" slitwidth
-        fitstbl["slitwid"][sky_idx] = fitstbl["slitwid"][cen_idx]
+        # Return the corrected table
+        return fitstbl
 
-        # Return
+    def get_comb_group(self, fitstbl: astropy.table.Table) -> astropy.table.Table:
+        """
+        Automatically assign combination groups and background images by parsing
+        known dither patterns.
+
+        This method is used in
+        :func:`~pypeit.metadata.PypeItMetaData.set_combination_groups`, and
+        directly modifies the ``comb_id`` and ``bkg_id`` columns in the provided
+        table.
+
+        Specifically here for NIRES, since it's likely to have one set of flat/dark frames for
+        different targets, this method sets calib = "all" for the flat and dark frames and
+        assigns different calib values to the science/standard frames of different targets.
+
+        Moreover, this method parses from the header the dither pattern of the
+        science/standard frames in a given calibration group and assigns to each
+        of them a default ``comb_id`` and ``bkg_id``. The dither patterns used
+        here are: "ABAB", "ABBA", "ABpat", and "ABC".  Note that the frames in
+        the same dither positions (A positions or B positions) of each "ABAB" or
+        "ABBA" sequence are 2D coadded  (without optimal weighting) before the
+        background subtraction, while for the other dither patterns (e.g.,
+        "AB"), the frames in the same dither positions are not coadded.  The
+        ``comb_id`` and ``bkg_id`` will *not* assigned if:
+
+            - the dither offset is zero for every frame in the dither sequence
+
+            - the dither pattern recorded in the header is not recognized or set
+              to NONE or MANUAL.
+
+        Args:
+            fitstbl(`astropy.table.Table`_):
+                The table with the metadata for all the frames.
+
+        Returns:
+            `astropy.table.Table`_: modified fitstbl.
+        """
+        return fitstbl
+
+    def set_calib_groups(self, fitstbl: astropy.table.Table) -> astropy.table.Table:
+        """
+        Automtically assign calibration groups based on instrument-specific
+        needs.
+
+        This method is used in
+        :func:`~pypeit.metadata.PypeItMetaData.set_calibration_groups`, and
+        directly modifies the ``calib`` columns in the provided table.
+
+        For NIHTS, the control software assigns slit widths to frames based on
+        either where the object is placed or, in the case of Dome Flats,
+        exposure time.
+
+        Args:
+            fitstbl(`astropy.table.Table`_):
+                The table with the metadata for all the frames.
+
+        Returns:
+            `astropy.table.Table`_: modified fitstbl.
+        """
+        # Create the (empty) 'calib' column
+        fitstbl["calib"] = np.full(len(fitstbl), "None", dtype=object)
+
+        # First, assign all frames with 'slitwid' = 0.0 to 'all' calibration groups
+        fitstbl["calib"][fitstbl["slitwid"] == 0.0] = "all"
+
+        # Loop through the NIHTS slitlets, assigning calibration groups to each
+        for i, slitwid in enumerate(SLITS):
+            fitstbl["calib"][fitstbl["slitwid"] == slitwid] = i
+
+        # If any science frames were assigned 'all', reassign them to 0
+        sci_as_all = (fitstbl["frametype"] == "science") & (fitstbl["calib"] == "all")
+        fitstbl["calib"][sci_as_all] = 0
+
+        # Assign all 'dark' frames to 'all' calibration groups
+        fitstbl["calib"][fitstbl["frametype"] == "dark"] = "all"
+
         return fitstbl
 
     def tweak_standard(

@@ -766,8 +766,8 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         method attempts to return the `astropy.time.Time`_ object directly, but
         then scrubs any values that cause a ``ValueError``.
 
-        The scrubbing consists of deconstructing the string into its componen+66ts,
-        then carefully reconstructing it into proper ISO 8601 format.  Also,3
+        The scrubbing consists of deconstructing the string into its components,
+        then carefully reconstructing it into proper ISO 8601 format.  Also,
         some recursive edge-case catching is done, but at some point you just
         have to give up and go buy a lottery ticket.
 

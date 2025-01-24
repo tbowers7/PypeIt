@@ -1315,6 +1315,7 @@ class Spectrograph:
                            f"of {raw_file}.")
 
             for section in ['datasec', 'oscansec']:
+
                 # Get the data sections from the detector object (see get_detector_par above)
                 # TODO: Add ability to incude user windowing (e.g., Kast Red)
                 image_sections = detectors[i][section]
