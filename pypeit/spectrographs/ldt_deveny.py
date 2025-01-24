@@ -297,6 +297,8 @@ class LDTDeVenySpectrograph(spectrograph.Spectrograph):
         #   rather a SavGol filter -- more appropriate for this CCD.
         par.reset_all_processimages_par(use_illumflat=False, overscan_method='chebyshev', overscan_par=1)
 
+        # For the bias frames, do not use bias
+        par["calibrations"]['biasframe']['process']['use_biasimage'] = False
         # Make a bad pixel mask
         par['calibrations']['bpm_usebias'] = True
 

@@ -211,16 +211,32 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         if meta_key == "slitwid":
             # The width of the slitlet selected in the XCAM GUI for the target
             #   Stored in the first comment card (Slit:n.nn, Position:N)
+            swid = str(headarr[0]["COMMENT"][0]).split(",", maxsplit=1)[0].split(":")[1]
             try:
-                return float(headarr[0]["COMMENT"][0].split(",")[0].split(":")[1])
+                return float(swid)
             except ValueError:
-                # For calibration frames or SED1/2, use the width of the end slitlets
-                return 4.03
+                if "sed" in swid.lower():
+                    # For SED1/2, use the width of the end slitlets
+                    return 4.03
+                # For calibration frames and all others, return 0
+                return 0.0
 
         if meta_key == "dithpos":
             # The nodding position of the target along the slit
             #   Stored in the first comment card (Slit:n.nn, Position:N)
-            return headarr[0]["COMMENT"][0].split(",")[1].split(":")[1]
+            dpos = str(headarr[0]["COMMENT"][0]).split(",")[1].split(":")[1].strip()
+            swid = (
+                str(headarr[0]["COMMENT"][0])
+                .split(",", maxsplit=1)[0]
+                .split(":")[1]
+                .strip()
+            )
+            if dpos == "Cen" and swid == "None":
+                # An error in the Cen-Sky script writes "Slit: None, Position:Cen"
+                #   instead of "Slit: {slit}, Position:Sky"
+                return "Sky"
+            # Return the value from the header
+            return dpos
 
         if meta_key == "target":
             # Revert to TCS's SCITARG if target not set in LOUI for OBJECT frames
@@ -278,8 +294,14 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
 
         # No bias or overscan for IRFPAs
         par.reset_all_processimages_par(
-            use_biasimage=False, use_illumflat=False, use_overscan=False
+            use_biasimage=False,
+            use_overscan=False,
+            use_darkimage=True,
+            use_illumflat=False,
         )
+
+        # Do not use Dark image for Dark frame procesing
+        par["calibrations"]["darkframe"]["process"]["use_darkimage"] = False
 
         # Slit-edge settings for NIHTS' slitlets
         par["calibrations"]["slitedges"]["edge_thresh"] = 15.0  # Default: 20.0
@@ -430,6 +452,43 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             return np.zeros(len(fitstbl), dtype=bool)
         msgs.warn(f"Cannot determine if frames are of type {ftype}")
         return np.zeros(len(fitstbl), dtype=bool)
+
+    def validate_fitstbl(self, fitstbl: astropy.table.Table) -> astropy.table.Table:
+        """Validate the metadata table
+
+        **Fix slitwidths for Cen/Sky nod pattern**
+
+        An error in the NIHTS observation script for Cen/Sky nod pattern
+        writes "Slit: None, Position:Cen" instead of "Slit: {slit},
+        Position:Sky" for the first COMMENT line.
+
+        The :meth:`compound_meta` method in this class sets position to "Sky"
+        for these frames, but the slit width needs to be matched to the
+        previous frame, which cannot be done with the frame-by-frame way in
+        which that method is called.
+
+        This method is designed to read through the entire `fitstbl` generated
+        by the :class:`~pypeit.metadata.PypeItMetaData` class and change the
+        slit width of "Sky" dither frames to that of the immediately preceeding
+        "Cen" dither frame.
+
+        Args:
+            fitstbl (`astropy.table.Table`_):
+                The metadata table to be validated
+
+        Returns:
+            `astropy.table.Table`_: The validated metadata table
+        """
+        # The "Sky" portion of the Cen/Sky dither pattern
+        sky_idx = np.arange(len(fitstbl), dtype=int)[fitstbl["dithpos"] == "Sky"]
+        # The "Cen" portion of the Cen/Sky dither pattern is the previous frame
+        cen_idx = sky_idx - 1
+
+        # Place the "Cen" slit width into the "Sky" slitwidth
+        fitstbl["slitwid"][sky_idx] = fitstbl["slitwid"][cen_idx]
+
+        # Return
+        return fitstbl
 
     def tweak_standard(
         self,
