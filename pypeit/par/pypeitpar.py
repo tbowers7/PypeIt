@@ -3308,8 +3308,8 @@ class EdgeTracePar(ParSet):
         defaults['sobel_mode'] = 'nearest'
         options['sobel_mode'] = EdgeTracePar.valid_sobel_modes()
         dtypes['sobel_mode'] = str
-        descr['sobel_mode'] = 'Mode for Sobel filtering.  Default is \'nearest\'; note we find' \
-                              '\'constant\' works best for DEIMOS.'
+        descr['sobel_mode'] = 'Mode for Sobel filtering.  Default is ``nearest``; note we find' \
+                              '``constant`` works best for DEIMOS.'
 
         defaults['edge_thresh'] = 20.
         dtypes['edge_thresh'] = [int, float]
@@ -3327,7 +3327,7 @@ class EdgeTracePar(ParSet):
         descr['exclude_regions'] = 'User-defined regions to exclude from the slit tracing. To set this parameter, ' \
                                    'the text should be a comma separated list of pixel ranges (in the x direction) ' \
                                    'to be excluded and the detector number. For example, the following string ' \
-                                   '1:0:20,1:300:400  would select two regions in det=1 between pixels 0 and 20 ' \
+                                   '``1:0:20,1:300:400``  would select two regions in det=1 between pixels 0 and 20 ' \
                                    'and between 300 and 400.'
 
         defaults['follow_span'] = 20
@@ -3538,30 +3538,30 @@ class EdgeTracePar(ParSet):
         options['sync_predict'] = EdgeTracePar.valid_predict_modes()
         dtypes['sync_predict'] = str
         descr['sync_predict'] = 'Mode to use when predicting the form of the trace to insert.  ' \
-                                'Use `pca` to use the PCA decomposition, `nearest` to ' \
-                                'reproduce the shape of the nearest trace, or `auto` to let PypeIt ' \
-                                'decide which mode to use between `pca` and `nearest`. In general, ' \
-                                'it will first try `pca`, and if that is not possible, it will use `nearest`.'
+                                'Use ``pca`` to use the PCA decomposition, ``nearest`` to ' \
+                                'reproduce the shape of the nearest trace, or ``auto`` to let PypeIt ' \
+                                'decide which mode to use between ``pca`` and ``nearest``. In general, ' \
+                                'it will first try ``pca``, and if that is not possible, it will use ``nearest``.'
 
         defaults['sync_center'] = 'median'
         options['sync_center'] = EdgeTracePar.valid_center_modes()
         dtypes['sync_center'] = str
         descr['sync_center'] = 'Mode to use for determining the location of traces to insert.  ' \
-                               'Use `median` to use the median of the matched left and right ' \
-                               'edge pairs, `nearest` to use the length of the nearest slit, ' \
-                               'or `gap` to offset by a fixed gap width from the next slit edge.'
+                               'Use ``median`` to use the median of the matched left and right ' \
+                               'edge pairs, ``nearest`` to use the length of the nearest slit, ' \
+                               'or ``gap`` to offset by a fixed gap width from the next slit edge.'
 
         defaults['gap_offset'] = 5.
         dtypes['gap_offset'] = [int, float]
         descr['gap_offset'] = 'Offset (pixels) used for the slit edge gap width when inserting ' \
-                              'slit edges (see `sync_center`) or when nudging predicted slit ' \
+                              'slit edges (see ``sync_center``) or when nudging predicted slit ' \
                               'edges to avoid slit overlaps.  This should be larger than ' \
-                              '`minimum_slit_gap` when converted to arcseconds.'
+                              '``minimum_slit_gap`` when converted to arcseconds.'
 
         defaults['sync_to_edge'] = True
         dtypes['sync_to_edge'] = bool
         descr['sync_to_edge'] = 'If adding a first left edge or a last right edge, ignore ' \
-                                '`center_mode` for these edges and place them at the edge of ' \
+                                '``center_mode`` for these edges and place them at the edge of ' \
                                 'the detector (with the relevant shape).'
 
         defaults['bound_detector'] = False
@@ -3749,7 +3749,7 @@ class EdgeTracePar(ParSet):
         defaults['maskdesign_step'] = 1
         dtypes['maskdesign_step'] = [int, float]
         descr['maskdesign_step'] = 'Step in pixels used to generate a list of possible offsets ' \
-                                   '(within +/- `maskdesign_maxsep`) between the slit edges defined ' \
+                                   '(within +/- ``maskdesign_maxsep``) between the slit edges defined ' \
                                    'by the mask design and the traced edges.'
 
         defaults['maskdesign_sigrej'] = 3
@@ -3788,10 +3788,10 @@ class EdgeTracePar(ParSet):
 
         dtypes['add_slits'] = [str, list]
         descr['add_slits'] = 'Add one or more user-defined slits.  The syntax to define a ' \
-                             'slit to add is: \'det:spec:spat_left:spat_right\' where ' \
+                             'slit to add is: ``det:spec:spat_left:spat_right`` where ' \
                              'det=detector, spec=spectral pixel, spat_left=spatial pixel of ' \
                              'left slit boundary, and spat_righ=spatial pixel of right slit ' \
-                             'boundary.  For example, \'2:2000:2121:2322,3:2000:1201:1500\' ' \
+                             'boundary.  For example, ``2:2000:2121:2322,3:2000:1201:1500`` ' \
                              'will add a slit to detector 2 passing through spec=2000 ' \
                              'extending spatially from 2121 to 2322 and another on detector 3 ' \
                              'at spec=2000 extending from 1201 to 1500.'
@@ -3808,9 +3808,9 @@ class EdgeTracePar(ParSet):
 
         dtypes['rm_slits'] = [str, list]
         descr['rm_slits'] = 'Remove one or more user-specified slits.  The syntax used to ' \
-                            'define a slit to remove is: \'det:spec:spat\' where det=detector, ' \
+                            'define a slit to remove is: ``det:spec:spat`` where det=detector, ' \
                             'spec=spectral pixel, spat=spatial pixel.  For example, ' \
-                            '\'2:2000:2121,3:2000:1500\' will remove the slit on detector 2 ' \
+                            '``2:2000:2121,3:2000:1500`` will remove the slit on detector 2 ' \
                             'that contains pixel (spat,spec)=(2000,2121) and on detector 3 ' \
                             'that contains pixel (2000,2121).'
 

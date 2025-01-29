@@ -1111,16 +1111,21 @@ class EdgeTraceSet(calibframe.CalibFrame):
             msgs.error('No regions to exclude have been provided. '
                        'To do so, see parameter `exclude_regions` in `EdgeTracePar`')
 
-        # create the arrays with det, starting pixels and ending pixels
+        # Might not be a list yet (only a str)
+        if not isinstance(self.par['exclude_regions'], list):
+            self.par['exclude_regions'] = [self.par['exclude_regions']]
+
+        # Create the arrays with det, starting pixels and ending pixels
         dets = np.zeros(len(self.par['exclude_regions']), dtype=int)
         reg_start = np.zeros(len(self.par['exclude_regions']), dtype=int)
         reg_end = np.zeros(len(self.par['exclude_regions']), dtype=int)
-        # fill them
+
+        # Fill them
         for i, region in enumerate(self.par['exclude_regions']):
             dets[i], reg_start[i], reg_end[i] = [int(s) for s in region.split(':')]
-        # select the current detector
-        this_det = dets == self.spectrograph.ndet
 
+        # Select and return the current detector
+        this_det = dets == self.spectrograph.ndet
         return reg_start[this_det], reg_end[this_det]
 
     def _base_header(self, hdr=None):
