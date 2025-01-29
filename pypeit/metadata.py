@@ -1173,34 +1173,41 @@ class PypeItMetaData:
 
         # TODO: Science frames can only have one calibration group
 
-        # Assign everything from the same configuration to the same
-        # calibration group; this needs to have dtype=object, otherwise
-        # any changes to the strings will be truncated at 4 characters.
-        self.table['calib'] = np.full(len(self), 'None', dtype=object)
-        for i in range(n_cfg):
-            in_cfg = np.array([configs[i] in _set.split(',') for _set in self.table['setup']]) # & (self['framebit'] > 0)
-            if not any(in_cfg):
-                continue
-            icalibs = np.full(len(self['calib'][in_cfg]), 'None', dtype=object)
-            for c in range(len(self['calib'][in_cfg])):
-                if self['calib'][in_cfg][c] == 'None':
-                    icalibs[c] = str(i)
-                else:
-                    icalibs[c] = self['calib'][in_cfg][c] + ',{}'.format(i)
-            self['calib'][in_cfg] = icalibs
 
-        # Allow some frame types to be used in all calibration groups
-        # (like biases and darks)
-        if global_frames is not None:
-            if 'frametype' not in self.keys():
-                msgs.error('To set global frames, types must have been defined; '
-                           'run get_frame_types.')
+        # If an instrument has a set_calib_groups() method, use it
+        try:
+            self.table = self.spectrograph.set_calib_groups(self.table)
 
-            calibs = '0' if n_cfg == 1 else ','.join(np.arange(n_cfg).astype(str))
-            for ftype in global_frames:
-                indx = np.where(self.find_frames(ftype))[0]
-                for i in indx:
-                    self['calib'][i] = calibs
+        # Otherwise, this is the default behavior
+        except NotImplementedError:
+            # Assign everything from the same configuration to the same
+            # calibration group; this needs to have dtype=object, otherwise
+            # any changes to the strings will be truncated at 4 characters.
+            self.table['calib'] = np.full(len(self), 'None', dtype=object)
+            for i in range(n_cfg):
+                in_cfg = np.array([configs[i] in _set.split(',') for _set in self.table['setup']]) # & (self['framebit'] > 0)
+                if not any(in_cfg):
+                    continue
+                icalibs = np.full(len(self['calib'][in_cfg]), 'None', dtype=object)
+                for c in range(len(self['calib'][in_cfg])):
+                    if self['calib'][in_cfg][c] == 'None':
+                        icalibs[c] = str(i)
+                    else:
+                        icalibs[c] = self['calib'][in_cfg][c] + ',{}'.format(i)
+                self['calib'][in_cfg] = icalibs
+
+            # Allow some frame types to be used in all calibration groups
+            # (like biases and darks)
+            if global_frames is not None:
+                if 'frametype' not in self.keys():
+                    msgs.error('To set global frames, types must have been defined; '
+                            'run get_frame_types.')
+
+                calibs = '0' if n_cfg == 1 else ','.join(np.arange(n_cfg).astype(str))
+                for ftype in global_frames:
+                    indx = np.where(self.find_frames(ftype))[0]
+                    for i in indx:
+                        self['calib'][i] = calibs
 
         # Set the bits based on the string representation of the groups
         self._set_calib_group_bits()

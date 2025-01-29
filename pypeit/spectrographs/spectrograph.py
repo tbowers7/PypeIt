@@ -911,6 +911,28 @@ class Spectrograph:
         """
         return fitstbl
 
+    def set_calib_groups(self, fitstbl):
+        """
+        Automtically assign calibration groups based on instrument-specific
+        needs.
+
+        This method is used in
+        :func:`~pypeit.metadata.PypeItMetaData.set_calibration_groups`, and
+        directly modifies the ``calib`` columns in the provided table.
+
+        **This method is not defined for all spectrographs.**  This base-class
+        implementation raises a ``NotImplementedError`` caught in the calling
+        function.
+
+        Args:
+            fitstbl(`astropy.table.Table`_):
+                The table with the metadata for all the frames.
+
+        Returns:
+            `astropy.table.Table`_: modified fitstbl.
+        """
+        raise NotImplementedError
+
     def pypeit_file_keys(self):
         """
         Define the list of keys to be output into a standard PypeIt file.
