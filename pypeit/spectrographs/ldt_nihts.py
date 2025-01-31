@@ -41,8 +41,8 @@ from pypeit.images import detector_container
 from pypeit.par import pypeitpar
 from pypeit.spectrographs import spectrograph
 
-# NIHTS slitlet sizes
-SLITS = [4.03, 1.34, 0.81, 0.27, 0.54, 1.07, 1.61]
+# NIHTS slitlet sizes in arcsec
+SLITS = np.array([4.03, 1.34, 0.81, 0.27, 0.54, 1.07, 1.61], dtype=float)
 
 
 class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
@@ -224,9 +224,18 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             try:
                 return float(swid)
             except ValueError:
-                if "sed" in swid.lower():
-                    # For SED1/2, use the width of the end slitlets
-                    return 4.03
+                if "sed1" in swid.lower():
+                    # For SED1, use the width of the end slitlets
+                    return SLITS[0]
+                if "sed2" in swid.lower():
+                    # If DOME FLAT without "No Lamps" -- TRACE IMAGES
+                    if (
+                        headarr[0]["OBSTYPE"] == "DOME FLAT"
+                        and "No Lamps" not in headarr[0]["OBJNAME"]
+                    ):
+                        return 10.0
+                    # Otherwise, use the width of the end slitlets
+                    return SLITS[0]
                 # For calibration frames and all others, return 0
                 return 0.0
 
@@ -296,25 +305,33 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         """
         par = super().default_pypeit_par()
 
-        # No bias or overscan or darks for IRFPAs
+        # No bias, overscan or darks for IRFPAs
         par.reset_all_processimages_par(
-            use_biasimage=False, use_overscan=False, use_darkimage=False, use_illumflat=False, 
+            use_biasimage=False,
+            use_overscan=False,
+            use_darkimage=False,
+            use_illumflat=False,
         )
 
         # Slit-edge settings for NIHTS' slitlets
-        par["calibrations"]["slitedges"]["edge_thresh"] = 15.0  # Default: 20.0
-        par["calibrations"]["slitedges"]["exclude_regions"] = "1:900:1024"  # Default: None
+        par["calibrations"]["slitedges"]["edge_thresh"] = 10.0  # Default: 20.0
         par["calibrations"]["slitedges"]["fit_order"] = 2  # Default: 5
         par["calibrations"]["slitedges"]["gap_offset"] = 0  # Default: 5
         par["calibrations"]["slitedges"]["max_nudge"] = 5  # Default: None
         par["calibrations"]["slitedges"]["minimum_slit_gap"] = 0  # Default: None
         par["calibrations"]["slitedges"]["minimum_slit_length"] = 10.0  # Default: None
-        # par["calibrations"]["slitedges"]["smash_range"] = [0.2, 0.5]  # Default: None
+        par["calibrations"]["slitedges"]["rm_slits"] = [
+            "1:512:900",
+            "1:512:950",
+            "1:512:1000",
+        ]  # Remove any spurious slits at +spatial range
+        par["calibrations"]["slitedges"]["smash_range"] = [0.3, 0.9]  # Default: None
         par["calibrations"]["slitedges"]["sync_predict"] = "nearest"  # Default: 'pca'
+        par["calibrations"]["slitedges"]["trace_median_frac"] = 0.1  # Default: None
         par["calibrations"]["slitedges"]["trace_thresh"] = 50  # Default: None
         par["calibrations"]["slitedges"]["trim_spec"] = [0, 50]  # Default: None
 
-        # Only use LONG arc frames
+        # Only use LONG arc frames for wavelength calibration
         par["calibrations"]["arcframe"]["exprng"] = [30, None]
         # For processing the arc frame, these settings allow for the combination of
         #   of frames from different lamps into a comprehensible Master
@@ -409,18 +426,31 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
                 & (fitstbl["lampstat01"] != "off")
                 & (fitstbl["idname"] != "FOCUS")
             )
-        if ftype in ["trace", "pixelflat"]:
+        if ftype == "trace":
+            return (
+                good_exp
+                & (fitstbl["idname"] == "DOME FLAT")
+                & (fitstbl["lampstat01"] == "off")
+                & (fitstbl["slitwid"] == 10.0)
+            )
+        if ftype == "pixelflat":
             return (
                 good_exp
                 & (fitstbl["idname"] == "DOME FLAT")
                 & (fitstbl["lampstat01"] == "off")
                 & (["- No Lamp" not in objname for objname in fitstbl["target"]])
+                & (fitstbl["slitwid"] < 5.0)
             )
         if ftype == "lampoffflats":
             return (
                 good_exp
                 & (fitstbl["lampstat01"] == "off")
-                & (["Dome Flats - No Lamps" in objname for objname in fitstbl["target"]])
+                & (
+                    [
+                        "Dome Flats - No Lamps" in objname
+                        for objname in fitstbl["target"]
+                    ]
+                )
             )
         if ftype == "illumflat":
             return (
@@ -433,6 +463,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
                 good_exp
                 & (fitstbl["idname"] == "OBJECT")
                 & (fitstbl["lampstat01"] == "off")
+                & (fitstbl["target"] != "test")
             )
         if ftype == "standard":
             return (
@@ -473,6 +504,11 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         slit width of "Sky" dither frames to that of the immediately preceeding
         "Cen" dither frame.
 
+        **Allow SED flats to be used to trace slits for all calibrations**
+        Add second copy of SED dome flat images, called "TRACE FLAT" in the
+        'idname' field of the metadata table that can be used for all
+        calibration groups.
+
         Args:
             fitstbl (`astropy.table.Table`_):
                 The metadata table to be validated
@@ -482,14 +518,11 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         """
         # The "Sky" portion of the Cen/Sky dither pattern (row numbers in the table)
         sky_idx = np.arange(len(fitstbl), dtype=int)[fitstbl["dithpos"] == "Sky"]
-
         # If no frames are from Cen/Sky dithers, return the input table now
-        if len(sky_idx) == 0:
-            return fitstbl
-
-        # The "Cen" portion of the Cen/Sky dither pattern is the previous frame
-        # Place the "Cen" slit width into the "Sky" slit width
-        fitstbl["slitwid"][sky_idx] = fitstbl["slitwid"][sky_idx - 1]
+        if len(sky_idx):
+            # The "Cen" portion of the Cen/Sky dither pattern is the previous frame
+            # Place the "Cen" slit width into the "Sky" slit width
+            fitstbl["slitwid"][sky_idx] = fitstbl["slitwid"][sky_idx - 1]
 
         # Return the corrected table
         return fitstbl
@@ -566,20 +599,21 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         sci_as_all = (fitstbl["frametype"] == "science") & (fitstbl["calib"] == "all")
         fitstbl["calib"][sci_as_all] = 0
 
-        # Assign all 'dark' frames to 'all' calibration groups
-        fitstbl["calib"][fitstbl["frametype"] == "dark"] = "all"
+        # Set all trace frames to 'all' calibration group
+        fitstbl["calib"][fitstbl["slitwid"] > 5.0] = "all"
 
+        # Return the table
         return fitstbl
 
     def tweak_standard(
         self,
-        wave_in,
-        counts_in,
-        counts_ivar_in,
-        gpm_in,
-        meta_table,
-        log10_blaze_function=None,
-    ):
+        wave_in: np.ndarray,
+        counts_in: np.ndarray,
+        counts_ivar_in: np.ndarray,
+        gpm_in: np.ndarray,
+        meta_table: dict,
+        log10_blaze_function: np.ndarray = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         This routine is for performing instrument- and/or disperser-specific
         tweaks to standard stars so that sensitivity function fits will be
