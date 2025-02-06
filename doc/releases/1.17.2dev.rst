@@ -50,6 +50,9 @@ Datamodel Changes
 Under-the-hood Improvements
 ---------------------------
 
+ - Updates the ``pypeit_trace_edges`` script to use ``lampoffflats``, if they're
+   provided by the pypeit file passed to the script.
+
 
 Bug Fixes
 ---------
@@ -60,6 +63,8 @@ Bug Fixes
   the spectrum is extracted even when `pixelflat_model` does not exist.
 - The variance cube previously had a cubic term, and this has been changed
   to a quadratic term. This has been cross-checked with simple subpixel calculations.
+- Fixes bug associated with trying to remove or add slits for reductions that
+  mosaic multiple detectors.
 - Fix Setup GUI sizing issues on MacOS.
 - Fixed a bug with ``pypeit_identify`` when the number of echelle orders has
   more than two digits.
