@@ -36,7 +36,7 @@ def convert_radec(ra, dec):
 
     """
     if isinstance(ra, str):
-        if (('J' in ra) or (':' in ra)) or (' ' in ra.strip()):
+        if (('J' in ra) or (':' in ra) or ('h' in ra)) or (' ' in ra.strip()):
             coord = coordinates.SkyCoord(ra, dec, unit=(units.hourangle, units.deg))
             return coord.ra.value, coord.dec.value
         else:
