@@ -320,11 +320,9 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         par["calibrations"]["slitedges"]["max_nudge"] = 5  # Default: None
         par["calibrations"]["slitedges"]["minimum_slit_gap"] = 0  # Default: None
         par["calibrations"]["slitedges"]["minimum_slit_length"] = 10.0  # Default: None
-        par["calibrations"]["slitedges"]["rm_slits"] = [
-            "1:512:900",
-            "1:512:950",
-            "1:512:1000",
-        ]  # Remove any spurious slits at +spatial range
+        par["calibrations"]["slitedges"][
+            "rm_slits"
+        ] = "1:512:900; 1:512:950; 1:512:1000"  # Remove any spurious slits at +spatial range
         par["calibrations"]["slitedges"]["smash_range"] = [0.3, 0.9]  # Default: None
         par["calibrations"]["slitedges"]["sync_predict"] = "nearest"  # Default: 'pca'
         par["calibrations"]["slitedges"]["trace_median_frac"] = 0.1  # Default: None
