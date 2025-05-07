@@ -141,6 +141,69 @@ def detect_slit_edges(flux, bpm=None, median_iterations=0, min_sqm=30., sobel_mo
     return sobel_sig, edge_img
 
 
+def add_stairstep_edges(edge_img:np.ndarray, sobelsig:np.ndarray) -> np.ndarray:
+    r"""Add necessary edges for stairstep slitlet masks
+
+    New left edges to the right of right edges; new right edges to the left
+    of left edges.
+
+    Added: TPEB, 2025-May-6
+
+    Args:
+        edge_img (`numpy.ndarray`_):
+            An array marked with -1 for left slit edges and +1 for
+            right slit edges and 0 everywhere else. The image *must*
+            follow the pypeit convention, with shape :math:`(N_{\rm
+            spec},N_{\rm spat})`. See :func:`detect_slit_edges`.
+        sobelsig (`numpy.ndarray`_):
+            The image of the significance of the edge detection in
+            sigma.
+
+    Returns:
+        `numpy.ndarray`_: the array isolating the slit edges where the
+            left edges have a value of -1 and right edges have a value
+            of 1.
+    """
+
+    # Check the input
+    if edge_img.ndim > 2:
+        msgs.error('Provided edge image must be 2D.')
+    if not np.all(np.isin(np.unique(edge_img), [-1,0,1])):
+        msgs.error('Edge image must only have -1, 0, or 1 values.')
+
+    # Get shape
+    _, ny = edge_img.shape
+
+    # Find the left and right coordinates
+    lx, ly = np.where(edge_img == -1)
+    rx, ry = np.where(edge_img == 1)
+    x = np.concatenate((lx, rx))
+
+    # Loop over spectral channels (x)
+    for row in range(np.min(x), np.max(x)+1):
+
+        # For all left edges (ly) in this row, add a right edge two pixels to the left
+        l_idx = (lx == row)
+        if np.sum(l_idx):
+            # Left edge pixels are the ``ly`` (remove any too close to limits of image)
+            ledge_pix = ly[l_idx]
+            ledge_pix = ledge_pix[far_from_edge := ledge_pix >= 2]
+            # Create a RIGHT (``edge_img = 1``) edge TWO pixels to the left
+            edge_img[lx[l_idx][far_from_edge], ledge_pix-2] = 1
+
+        # For all right edges in this row, add a left edge two pixels to the right
+        r_idx = (rx == row)
+        if np.sum(r_idx):
+            # Right edge pixels are the ``ry`` (remove any too close to limits of image)
+            redge_pix = ry[r_idx]
+            redge_pix = redge_pix[far_from_edge := redge_pix < ny-2]
+            # Create a LEFT (``edge_img = -1``) edge TWO pixels to the right
+            edge_img[rx[r_idx][far_from_edge], redge_pix+2] = -1
+
+    # Return the admended edge image
+    return edge_img
+
+
 def identify_traces(edge_img, max_spatial_separation=4, follow_span=10, minimum_spec_length=50):
     r"""
     Follow slit edges to identify unique slit traces.
@@ -1740,7 +1803,3 @@ def extrapolate_orders(cen, width_fit, gap_fit, min_spat, max_spat, tol=0.01, br
     if bracket:
         return np.array(lower_spat[-1:0:-1]), np.array(upper_spat[1:])
     return np.array(lower_spat[-2:0:-1]), np.array(upper_spat[1:-1])
-    
-
-
-

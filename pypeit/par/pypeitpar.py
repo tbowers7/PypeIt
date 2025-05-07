@@ -3294,7 +3294,8 @@ class EdgeTracePar(ParSet):
                  order_gap_poly=None, order_fitrej=None, order_outlier=None, order_spat_range=None,
                  overlap=None, max_overlap=None, use_maskdesign=None, maskdesign_maxsep=None,
                  maskdesign_step=None, maskdesign_sigrej=None, pad=None, add_slits=None,
-                 add_predict=None, rm_slits=None, maskdesign_filename=None, mask_off_detector=None):
+                 add_predict=None, rm_slits=None, maskdesign_filename=None, mask_off_detector=None,
+                 stairstep_slitmask=None):
 
         # Grab the parameter names and values from the function
         # arguments
@@ -3772,6 +3773,17 @@ class EdgeTracePar(ParSet):
         descr['maskdesign_sigrej'] = 'Number of sigma for sigma-clipping rejection during slit-mask ' \
                                      'design matching.'
 
+        # Stairstep Slitlet Design
+        defaults['stairstep_slitmask'] = False
+        dtypes['stairstep_slitmask'] = bool
+        descr['stairstep_slitmask'] = 'Spectrograph uses a stairstep slitmask design with adjacent ' \
+                                      'slitlets of different width not separated from each other ' \
+                                      '(*i.e.*, slitlets are part of one long slit with variable ' \
+                                      'width).  This setting assigns left/right slit edges immediately ' \
+                                      'adjacent to "normally found" Sobel edges for the case when a ' \
+                                      'slit does not rise independently like a butte above the dark ' \
+                                      'background.  Currently only used by LDT/NIHTS.'
+
 #        # Force trim to be a tuple
 #        if pars['trim'] is not None and not isinstance(pars['trim'], tuple):
 #            try:
@@ -3888,7 +3900,7 @@ class EdgeTracePar(ParSet):
                    'order_gap_poly', 'order_fitrej', 'order_outlier', 'order_spat_range','overlap',
                    'max_overlap', 'use_maskdesign', 'maskdesign_maxsep', 'maskdesign_step',
                    'maskdesign_sigrej', 'maskdesign_filename', 'pad', 'add_slits', 'add_predict',
-                   'rm_slits', 'mask_off_detector']
+                   'rm_slits', 'mask_off_detector', 'stairstep_slitmask']
 
         # Find the list of keywords provded in `cfg` that are *not* valid
         badkeys = np.array([pk not in parkeys for pk in k])

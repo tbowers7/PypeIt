@@ -886,8 +886,8 @@ class EdgeTraceSet(calibframe.CalibFrame):
 
         Used parameters from :attr:`par`
         (:class:`~pypeit.par.pypeitpar.EdgeTracePar`) are
-        ``filt_iter``, ``sobel_mode``, ``edge_thresh``, and
-        ``follow_span``.
+        ``filt_iter``, ``sobel_mode``, ``edge_thresh``, sobel_enhance``,
+        ``exclude_regions``, and ``follow_span``.
 
         Args:
             bpm (`numpy.ndarray`_, optional):
@@ -957,6 +957,13 @@ class EdgeTraceSet(calibframe.CalibFrame):
                                           sobel_mode=self.par['sobel_mode'],
                                           sigdetect=self.par['edge_thresh'],
                                           sobel_enhance=self.par['sobel_enhance'])
+
+        # TODO: This is where to add left/right edges for stairstep slitmasks
+        #       (e.g., LDT/NIHTS)
+        if self.par['stairstep_slitmask']:
+            msgs.work("This trying to use STAIRSTEP_SLITMASK... working on implementation!!!")
+            edge_img = trace.add_stairstep_edges(edge_img, self.sobelsig)
+
         # Empty out the images prepared for left and right tracing
         # until they're needed.
         self.sobelsig_left = None

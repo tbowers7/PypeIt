@@ -1078,7 +1078,7 @@ class Calibrations:
             traceImage = traceImage.sub(lampoff_flat)
 
         edges = edgetrace.EdgeTraceSet(traceImage, self.spectrograph, self.par['slitedges'],
-                                       qa_path=self.qa_path, auto=True)
+                                       qa_path=self.qa_path, auto=True, debug=int(self.show))
         if not edges.success:
             # Something went amiss
             msgs.warn('Edge tracing failed.  Continuing, but likely to fail soon...')
