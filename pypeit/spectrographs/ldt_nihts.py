@@ -113,7 +113,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
             dataext=dataext,
             specaxis=1,  # Native spectrum is along the x-axis
             specflip=False,  # NIHTS H1 chip has blue at the left
-            spatflip=False,
+            spatflip=True,   # Make the processed frames look simply rotated
             platescale=0.13,  # Arcsec / pixel
             darkcurr=0.0,  # e-/pixel/hour
             saturation=16000.0,  # From the NIHTS manual
@@ -315,20 +315,16 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
 
         # Slit-edge settings for NIHTS' slitlets
         par["calibrations"]["slitedges"]["edge_thresh"] = 20.0  # Default: 20.0
-        par["calibrations"]["slitedges"]["exclude_regions"] = "1:850:1000"
+        par["calibrations"]["slitedges"]["exclude_regions"] = "1:1:150"
         par["calibrations"]["slitedges"]["fit_order"] = 2  # Default: 5
         par["calibrations"]["slitedges"]["gap_offset"] = 0  # Default: 5
         par["calibrations"]["slitedges"]["max_nudge"] = 5  # Default: None
         par["calibrations"]["slitedges"]["minimum_slit_gap"] = 0  # Default: None
         par["calibrations"]["slitedges"]["minimum_slit_length"] = 10.0  # Default: None
-        par["calibrations"]["slitedges"][
-            "rm_slits"
-        ] = "1:512:900; 1:512:950; 1:512:1000"  # Remove any spurious slits at +spatial range
         par["calibrations"]["slitedges"]["smash_range"] = [0.3, 0.9]  # Default: None
         par["calibrations"]["slitedges"]["stairstep_slitmask"] = True  # Default: False
         par["calibrations"]["slitedges"]["sync_predict"] = "nearest"  # Default: 'pca'
         par["calibrations"]["slitedges"]["trace_median_frac"] = 0.1  # Default: None
-        par["calibrations"]["slitedges"]["trace_thresh"] = 50  # Default: None
         par["calibrations"]["slitedges"]["trim_spec"] = [0, 50]  # Default: None
 
         # Only use LONG arc frames for wavelength calibration
@@ -361,7 +357,7 @@ class LDTNIHTSSpectrograph(spectrograph.Spectrograph):
         # par["calibrations"]["tilts"]["spec_order"] = 5  # Default: 4
 
         # Flat-field parameter modification
-        par["calibrations"]["flatfield"]["pixelflat_min_wave"] = 3000.0  # Default: None
+        #par["calibrations"]["flatfield"]["pixelflat_min_wave"] = 3000.0  # Default: None
         par["calibrations"]["flatfield"]["slit_illum_finecorr"] = False  # Default: True
         par["calibrations"]["flatfield"]["spec_samp_fine"] = 30  # Default: 1.2
         par["calibrations"]["flatfield"]["tweak_slits"] = False  # Default: True
