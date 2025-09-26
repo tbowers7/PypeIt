@@ -687,6 +687,11 @@ def show_1dspec(filename, ext=0, masked=True, fluxed=False, extraction='OPT'):
     sh = viewer.shell()
 
     chname, plname = "Spec1d", "Spec1dView"
+    existing_channels = sh.get_channel_names()
+    if chname in existing_channels:
+        for i in range(1,999):
+            if (chname:=f"Spec1d_{i}") not in existing_channels:
+                break
     sh.add_channel(chname)
     ch = viewer.channel(chname)
     # set up the options as passed
