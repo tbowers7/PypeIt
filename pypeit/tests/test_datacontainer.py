@@ -5,6 +5,7 @@ import sys
 import io
 import os
 import inspect
+import warnings
 
 from IPython import embed
 
@@ -15,6 +16,7 @@ import numpy as np
 #import pypeit
 
 from astropy.table import Table
+from astropy.io import fits
 
 from pypeit.datamodel import DataContainer
 from pypeit.io import fits_open
@@ -37,6 +39,34 @@ class BasicContainer(DataContainer):
     def _bundle(self):
         # Specify the extension
         return super(BasicContainer, self)._bundle(ext='basic')
+
+
+def test_parse_chararray_without_deprecated_numpy_attribute(monkeypatch):
+    class StringContainer(DataContainer):
+        version = '1.0.0'
+        datamodel = {'labels': dict(otype=np.ndarray, atype=np.str_, descr='Test')}
+
+    hdu = fits.BinTableHDU.from_columns(
+        [fits.Column(name='labels', format='3A', array=['one', 'two'])])
+    hdu.header['DMODCLS'] = 'StringContainer'
+    hdu.header['DMODVER'] = StringContainer.version
+
+    numpy_char = np.char
+
+    class DeprecatedCharAccess:
+        def __getattr__(self, name):
+            if name == 'chararray':
+                warnings.warn('The chararray class is deprecated', DeprecationWarning)
+            return getattr(numpy_char, name)
+
+    monkeypatch.setattr(np, 'char', DeprecatedCharAccess())
+    with warnings.catch_warnings():
+        warnings.filterwarnings('error', message='The chararray class is deprecated',
+                                 category=DeprecationWarning)
+        labels = StringContainer.from_hdu(hdu).labels
+
+    assert type(labels) is np.ndarray
+    assert labels.tolist() == ['one', 'two']
 
 
 class MixedCaseContainer(DataContainer):
