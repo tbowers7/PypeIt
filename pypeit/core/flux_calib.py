@@ -1103,13 +1103,13 @@ def load_filter_file(filter):
         raise PypeItError("PypeIt is not ready for filter = {}".format(filter))
 
     trans_file = dataPaths.filters.get_file_path('filtercurves.fits')
-    trans = io.fits_open(trans_file)
-    wave = trans[filter].data['lam']  # Angstroms
-    instr = trans[filter].data['Rlam']  # Am keeping in atmospheric terms
-    keep = instr > 0.
-    # Parse
-    wave = wave[keep]
-    instr = instr[keep]
+    with io.fits_open(trans_file) as trans:
+        wave = trans[filter].data['lam']  # Angstroms
+        instr = trans[filter].data['Rlam']  # Am keeping in atmospheric terms
+        keep = instr > 0.
+        # Boolean indexing copies the arrays before the FITS file is closed.
+        wave = wave[keep]
+        instr = instr[keep]
 
     # Return
     return wave, instr

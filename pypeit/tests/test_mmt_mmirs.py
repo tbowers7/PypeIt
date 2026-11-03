@@ -483,7 +483,8 @@ def test_ramp_sigma_no_exptime_match_falls_back(tmp_path):
                         tmp_path / 'dark.fits')            # EXPTIME 22 s
     spec, _ = _metadata_for([sci, dark], ['object', 'dark'])
 
-    reads, head1 = mmt_mmirs.mmirs_load_ramp(fits.open(sci))
+    with fits.open(sci) as hdu:
+        reads, head1 = mmt_mmirs.mmirs_load_ramp(hdu)
     covar = fitramp.Covar([grptime * (i + 1) for i in range(15)])
     diffs = ramp.ramp_diffs(reads * gain, covar)
 
@@ -607,6 +608,7 @@ def test_get_rawimage_ramp_path(tmp_path):
     rate_meas = np.median(img) * gain / exptime
     assert np.abs(rate_meas - rate) < 1.5, \
         f'the recovered count rate {rate_meas} must match the injected {rate}'
+    hdu.close()
 
 
 @pytest.mark.parametrize('ngroups', [2, 4])
@@ -628,6 +630,7 @@ def test_get_rawimage_cds_path(tmp_path, ngroups):
     # CDS frames never get a preprocessed sidecar
     assert not ramp.rampfit_path(path, tmp_path).exists(), \
         'a CDS frame must not produce a RampFit sidecar'
+    hdu.close()
 
 
 def test_findobj_trace_defaults():
@@ -669,7 +672,8 @@ def test_get_rawimage_honors_custom_rampfit_dir(tmp_path):
     spec = load_spectrograph('mmt_mmirs')
     spec._ramp_output_dir = tmp_path
     spec._rampfit_dir = 'Ramps'
-    spec.get_rawimage(str(path), 1)
+    _, _, hdu, _, _, _ = spec.get_rawimage(str(path), 1)
+    hdu.close()
     assert ramp.rampfit_path(path, tmp_path, 'Ramps').exists(), \
         'the sidecar must be written to the configured rampfit_dir'
     assert not ramp.rampfit_path(path, tmp_path).exists(), \
@@ -842,6 +846,8 @@ def test_get_rawimage_writes_and_reuses_sidecar(tmp_path, monkeypatch):
         'the reused load must return the preprocessed (RAMPFIT) file'
     assert hdu2[1].header['IMAGETYP'] == 'object', \
         'the preprocessed file must keep its IMAGETYP metadata'
+    hdu1.close()
+    hdu2.close()
 
 
 def test_get_rawimage_direct_preprocessed(tmp_path, monkeypatch):
@@ -850,7 +856,8 @@ def test_get_rawimage_direct_preprocessed(tmp_path, monkeypatch):
                         tmp_path / 'sci.fits')
     spec = load_spectrograph('mmt_mmirs')
     spec._ramp_output_dir = tmp_path
-    _, img1, *_ = spec.get_rawimage(str(path), 1)
+    _, img1, hdu1, _, _, _ = spec.get_rawimage(str(path), 1)
+    hdu1.close()
     sidecar = ramp.rampfit_path(path, tmp_path)
 
     def boom(*args, **kwargs):
@@ -862,6 +869,7 @@ def test_get_rawimage_direct_preprocessed(tmp_path, monkeypatch):
     assert np.isclose(detpar2['ronoise'][0],
                       fits.getval(sidecar, 'RAMPRON')), \
         'loading a preprocessed file directly must read its stored RAMPRON'
+    hdu2.close()
 
 
 def test_get_rawimage_stale_sidecar_refits(tmp_path):
@@ -869,7 +877,8 @@ def test_get_rawimage_stale_sidecar_refits(tmp_path):
                         tmp_path / 'sci.fits')
     spec = load_spectrograph('mmt_mmirs')
     spec._ramp_output_dir = tmp_path
-    spec.get_rawimage(str(path), 1)
+    _, _, hdu, _, _, _ = spec.get_rawimage(str(path), 1)
+    hdu.close()
     sidecar = ramp.rampfit_path(path, tmp_path)
     old_mtime = fits.getval(sidecar, 'RAWMTIME')
 
@@ -878,7 +887,8 @@ def test_get_rawimage_stale_sidecar_refits(tmp_path):
     os.utime(path, (st.st_atime, st.st_mtime + 10.))
     spec2 = load_spectrograph('mmt_mmirs')
     spec2._ramp_output_dir = tmp_path
-    spec2.get_rawimage(str(path), 1)
+    _, _, hdu, _, _, _ = spec2.get_rawimage(str(path), 1)
+    hdu.close()
     assert fits.getval(sidecar, 'RAWMTIME') != old_mtime, \
         'a stale sidecar must be refit and its RAWMTIME updated'
     assert ramp.rampfit_fresh(sidecar, path), \

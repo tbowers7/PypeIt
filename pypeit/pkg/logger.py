@@ -209,6 +209,7 @@ class PypeItLogger(logging.Logger):
                 # Remove any added to the warnings logger
                 self.warnings_logger.removeHandler(handler)
             self.removeHandler(handler)
+            handler.close()
 
         # Reset the exception hook (only if it was reset by this logger)
         if self._excepthook_orig is not None and sys.excepthook == self._excepthook:

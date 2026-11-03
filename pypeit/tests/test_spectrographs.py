@@ -11,6 +11,7 @@ import astropy.io.fits
 import astropy.table
 
 from pypeit import dataPaths
+from pypeit import io
 from pypeit import PypeItError
 from pypeit import spectrographs
 from pypeit.spectrographs.util import load_spectrograph
@@ -19,6 +20,24 @@ from pypeit.tests import tstutils
 from pypeit.tests.tstutils import data_output_path
 
 from IPython import embed
+
+
+def test_get_headarr_closes_file(tmp_path, monkeypatch):
+    path = tmp_path / 'headers.fits'
+    astropy.io.fits.PrimaryHDU(header=astropy.io.fits.Header({'TEST': 1})).writeto(path)
+    opened = []
+    fits_open = io.fits_open
+
+    def track_open(*args, **kwargs):
+        hdul = fits_open(*args, **kwargs)
+        opened.append(hdul)
+        return hdul
+
+    monkeypatch.setattr(io, 'fits_open', track_open)
+    headers = load_spectrograph('shane_kast_blue').get_headarr(path)
+
+    assert headers[0]['TEST'] == 1
+    assert opened[0]._file.closed
 
 
 @pytest.mark.remote_data
@@ -31,6 +50,7 @@ def test_shanekastblue():
     bpm = s.bpm(example_file, det)
     assert data.shape == (350, 2112)
     assert bpm.shape == (2048,350)
+    hdu.close()
 
 
 @pytest.mark.remote_data

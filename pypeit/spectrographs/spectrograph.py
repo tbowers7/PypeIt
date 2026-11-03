@@ -2071,7 +2071,8 @@ class Spectrograph:
         if isinstance(inp, (str, Path)):
             self._check_extensions(inp)
             try:
-                hdul = io.fits_open(inp)
+                with io.fits_open(inp) as hdul:
+                    return [hdu.header.copy() for hdu in hdul]
             except:
                 if strict:
                     raise PypeItError(f'Cannot open {inp}.')

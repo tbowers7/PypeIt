@@ -98,8 +98,11 @@ class Mosaic(datamodel.DataContainer):
         # also requires that datamodel components *cannot* be None for some
         # detectors in the mosaic and not others.
         try:
-            tbl = table.vstack([d._bundle()[0]['DETECTOR'] for d in self.detectors],
-                                join_type='exact')
+            detector_tables = [d._bundle()[0]['DETECTOR'] for d in self.detectors]
+            # Each detector has a different name; the mosaic name is set below.
+            for detector_table in detector_tables:
+                detector_table.meta.pop('name', None)
+            tbl = table.vstack(detector_tables, join_type='exact')
         except:
             raise PypeItError('CODING ERROR: Could not stack detector parameter tables when writing '
                        'mosaic metadata.')

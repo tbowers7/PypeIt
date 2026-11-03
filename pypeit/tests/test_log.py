@@ -158,9 +158,11 @@ def test_log_overwrite():
     log.init(level=logging.DEBUG, log_file=lf)
     log.debug('test')
     assert lf.is_file(), 'Log file not produced'
+    previous_handler = log.fh
 
     # Reinit, which should restart the file
     log.init(level=logging.DEBUG, log_file=lf)
+    assert previous_handler.stream is None, 'Reinitializing should close the previous log file'
     log.debug('test')
     assert lf.is_file(), 'Log file not produced'
     with open(lf, 'r') as f:

@@ -11,6 +11,7 @@ from pypeit.images.mosaic import Mosaic
 from pypeit.spectrographs.util import load_spectrograph
 
 
+@pytest.mark.filterwarnings('error:Cannot merge meta key:astropy.utils.metadata.exceptions.MergeConflictWarning')
 def test_io():
     # Create the mosaic
     spec = load_spectrograph('keck_deimos')

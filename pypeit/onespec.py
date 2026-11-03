@@ -114,9 +114,9 @@ class OneSpec(datamodel.DataContainer):
 
     @classmethod
     def from_xspec_file(cls, ifile:str):
-        hdul = io.fits_open(ifile)
-        wave = hdul['WAVELENGTH'].data
-        flux = hdul['FLUX'].data
+        with io.fits_open(ifile) as hdul:
+            wave = hdul['WAVELENGTH'].data.copy()
+            flux = hdul['FLUX'].data.copy()
         return cls(wave, None, flux, fluxed=False)
 
     @property
